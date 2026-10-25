@@ -5,6 +5,7 @@ from __future__ import annotations
 import chess
 import chess.engine
 from dataclasses import dataclass
+import math
 from pathlib import Path
 from typing import List, Optional
 
@@ -17,6 +18,26 @@ MATE_SCORE = 100_000
 class EngineSettings:
     depth: Optional[int] = 10
     time_seconds: Optional[float] = None
+
+    def __post_init__(self) -> None:
+        if self.depth is not None:
+            if (
+                isinstance(self.depth, bool)
+                or not isinstance(self.depth, int)
+                or self.depth < 1
+                or self.depth > 64
+            ):
+                raise ValueError(f"Engine depth must be an integer between 1 and 64, got {self.depth}")
+        if self.time_seconds is not None:
+            if (
+                isinstance(self.time_seconds, bool)
+                or not isinstance(self.time_seconds, (int, float))
+                or not math.isfinite(float(self.time_seconds))
+                or self.time_seconds <= 0
+            ):
+                raise ValueError(
+                    f"Engine time_seconds must be a finite positive number, got {self.time_seconds}"
+                )
 
     def to_limit(self) -> chess.engine.Limit:
         if self.depth is None and self.time_seconds is None:

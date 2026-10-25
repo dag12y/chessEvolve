@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import chess
+import pytest
 
 from chessevolve.data import PositionRecord
 from chessevolve.engine import EngineSettings, StockfishAdapter
@@ -116,3 +117,18 @@ def test_stockfish_independent_sessions() -> None:
         s2 = a2.evaluate_candidates(board, cands, EngineSettings(depth=5))
     assert s1 == s2
 
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"depth": 0},
+        {"depth": 65},
+        {"depth": True},
+        {"depth": 1, "time_seconds": 0},
+        {"depth": 1, "time_seconds": float("nan")},
+        {"depth": 1, "time_seconds": float("inf")},
+    ],
+)
+def test_engine_settings_reject_unbounded_or_invalid_limits(kwargs) -> None:
+    with pytest.raises(ValueError):
+        EngineSettings(**kwargs)

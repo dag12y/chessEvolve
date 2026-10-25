@@ -137,6 +137,8 @@ def save_checkpoint(
     metrics: dict,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    # Write atomically: write to temp file then rename
+    tmp = path.with_suffix(path.suffix + ".tmp")
     torch.save(
         {
             "model_state_dict": model.state_dict(),
@@ -145,8 +147,9 @@ def save_checkpoint(
             "split_info": split_info,
             "metrics": metrics,
         },
-        path,
+        tmp,
     )
+    tmp.rename(path)
 
 
 def load_checkpoint(path: Path) -> Tuple[MLPRanker, dict]:
