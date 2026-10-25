@@ -16,6 +16,18 @@ from .splitting import (
     write_manifest,
     write_split_manifest,
 )
+from .encoding import (
+    POSITION_DIM,
+    MOVE_DIM,
+    NUM_PIECE_PLANES,
+    SQUARES_PER_PLANE,
+    GLOBAL_FEATURES,
+    encode_position,
+    encode_move,
+    encode_position_from_fen,
+    encode_position_and_move,
+    piece_plane,
+)
 
 __all__ = [
     "PositionRecord",
@@ -30,4 +42,14 @@ __all__ = [
     "build_manifest",
     "write_manifest",
     "write_split_manifest",
+    "POSITION_DIM",
+    "MOVE_DIM",
+    "NUM_PIECE_PLANES",
+    "SQUARES_PER_PLANE",
+    "GLOBAL_FEATURES",
+    "encode_position",
+    "encode_move",
+    "encode_position_from_fen",
+    "encode_position_and_move",
+    "piece_plane",
 ]
