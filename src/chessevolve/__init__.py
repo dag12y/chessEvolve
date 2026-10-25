@@ -28,6 +28,17 @@ from .encoding import (
     encode_position_and_move,
     piece_plane,
 )
+from .evaluation import (
+    compute_file_sha256,
+    get_model_metadata,
+    records_to_evaluation_examples,
+    evaluate_model_performance,
+    measure_inference_latency,
+    evaluate_checkpoint,
+    evaluate_model_suite,
+    generate_evaluation_charts,
+    save_evaluation_artifacts,
+)
 
 __all__ = [
     "PositionRecord",
@@ -52,4 +63,14 @@ __all__ = [
     "encode_position_from_fen",
     "encode_position_and_move",
     "piece_plane",
+    "compute_file_sha256",
+    "get_model_metadata",
+    "records_to_evaluation_examples",
+    "evaluate_model_performance",
+    "measure_inference_latency",
+    "evaluate_checkpoint",
+    "evaluate_model_suite",
+    "generate_evaluation_charts",
+    "save_evaluation_artifacts",
 ]
+
