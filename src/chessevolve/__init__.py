@@ -39,6 +39,20 @@ from .evaluation import (
     generate_evaluation_charts,
     save_evaluation_artifacts,
 )
+from .downloader import (
+    DownloadError,
+    DownloadResult,
+    download_player_games,
+    output_path_for,
+    save_pgn,
+)
+from .pgn import (
+    PGNExtractionConfig,
+    ExtractionStats,
+    extract_positions_from_game,
+    extract_positions_from_pgn_file,
+    prepare_dataset_from_pgn,
+)
 
 __all__ = [
     "PositionRecord",
@@ -72,5 +86,15 @@ __all__ = [
     "evaluate_model_suite",
     "generate_evaluation_charts",
     "save_evaluation_artifacts",
+    "DownloadError",
+    "DownloadResult",
+    "download_player_games",
+    "output_path_for",
+    "save_pgn",
+    "PGNExtractionConfig",
+    "ExtractionStats",
+    "extract_positions_from_game",
+    "extract_positions_from_pgn_file",
+    "prepare_dataset_from_pgn",
 ]
 

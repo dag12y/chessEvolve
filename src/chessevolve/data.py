@@ -33,3 +33,7 @@ class PositionRecord:
             self.candidate_moves
         ):
             raise ValueError("candidate_scores_cp length must match candidate_moves")
+
+    def to_dict(self) -> dict:
+        import dataclasses
+        return dataclasses.asdict(self)
