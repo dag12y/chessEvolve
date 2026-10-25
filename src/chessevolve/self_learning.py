@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import copy
 import dataclasses
+import hashlib
 import json
 import math
 import random
@@ -26,7 +27,16 @@ from .dataset import TrainingExample, build_examples
 from .encoding import encode_move, encode_position
 from .engine import EngineSettings, StockfishAdapter
 from .model import MLPRanker
+from .distillation import _record_to_example
 from .train import TrainConfig, evaluate, load_checkpoint, save_checkpoint, train_one_epoch
+
+
+def _checkpoint_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 class InsufficientVerifiedExamplesError(ValueError):
@@ -321,6 +331,7 @@ class VerificationResult:
 def verify_feedback(
     feedback_records: List[FeedbackRecord],
     config: Optional[VerifierConfig] = None,
+    expected_records: Optional[Dict[str, PositionRecord]] = None,
 ) -> VerificationResult:
     """Verify generated feedback examples and reject invalid or untrusted data.
 
@@ -339,6 +350,20 @@ def verify_feedback(
         reasons[reason] = reasons.get(reason, 0) + 1
 
     for rec in feedback_records:
+        if expected_records is not None:
+            expected = expected_records.get(rec.position_id)
+            if expected is None:
+                _reject(rec, "unknown_position")
+                continue
+            if (
+                rec.source_game_id != expected.source_game_id
+                or rec.fen != expected.fen
+                or rec.candidate_moves != expected.candidate_moves
+                or rec.split != expected.split
+            ):
+                _reject(rec, "feedback_provenance_mismatch")
+                continue
+
         # 1. Split verification
         if rec.split != config.allowed_split:
             _reject(rec, f"disallowed_split:{rec.split}")
@@ -677,6 +702,115 @@ class SelfLearningRoundResult:
         }
 
 
+@dataclass
+class RecursiveSelfLearningConfig:
+    """Configuration for a bounded sequence of verified improvement rounds."""
+
+    iterations: int = 2
+    round_config: SelfLearningRoundConfig = field(
+        default_factory=SelfLearningRoundConfig
+    )
+
+    def __post_init__(self) -> None:
+        if self.iterations <= 0:
+            raise ValueError("iterations must be positive")
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass
+class RecursiveSelfLearningResult:
+    """Audit result for all recursive rounds and the retained final checkpoint."""
+
+    rounds: List[SelfLearningRoundResult]
+    final_checkpoint_path: str
+    summary: dict
+
+
+def run_recursive_self_learning(
+    baseline_checkpoint_path: Path,
+    train_pool: List[PositionRecord],
+    dev_pool: List[PositionRecord],
+    output_dir: Path,
+    config: Optional[RecursiveSelfLearningConfig] = None,
+    dev_examples: Optional[List[TrainingExample]] = None,
+) -> RecursiveSelfLearningResult:
+    """Run several rounds, always continuing from the accepted checkpoint.
+
+    Feedback is cached by position and engine settings, so a position selected
+    again is not re-labeled.  The final-test split is intentionally not an
+    input to this function; callers should evaluate it only after all rounds
+    and gate settings are frozen.
+    """
+    if config is None:
+        config = RecursiveSelfLearningConfig()
+    if not train_pool or not dev_pool:
+        raise ValueError("recursive self-learning requires non-empty train and dev pools")
+    if any(record.split != "train" for record in train_pool):
+        raise ValueError("recursive training pool must contain only train records")
+    if any(record.split != "dev" for record in dev_pool):
+        raise ValueError("recursive development pool must contain only dev records")
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    current_checkpoint = Path(baseline_checkpoint_path)
+    feedback_cache: Dict[str, FeedbackRecord] = {}
+    for record in train_pool:
+        if record.candidate_scores_cp is not None and record.engine_settings is not None:
+            feedback_cache[record.position_id] = FeedbackRecord(
+                position_id=record.position_id,
+                source_game_id=record.source_game_id,
+                fen=record.fen,
+                candidate_moves=list(record.candidate_moves),
+                candidate_scores=list(record.candidate_scores_cp),
+                split=record.split,
+                engine_version=record.engine_version or "unknown",
+                engine_settings=dict(record.engine_settings),
+                reference_best_move=record.reference_best_move,
+            )
+    round_results: List[SelfLearningRoundResult] = []
+
+    for iteration in range(1, config.iterations + 1):
+        round_config = dataclasses.replace(
+            config.round_config,
+            round_number=iteration,
+            seed=config.round_config.seed + iteration - 1,
+        )
+        round_output = output_dir / f"round_{iteration:03d}"
+        result = run_self_learning_round(
+            current_checkpoint,
+            train_pool,
+            dev_pool,
+            round_output,
+            round_config,
+            dev_examples=dev_examples,
+            feedback_cache=feedback_cache,
+        )
+        round_results.append(result)
+        current_checkpoint = round_output / "current_best.pt"
+
+    summary = {
+        "iterations": config.iterations,
+        "rounds": [result.summary for result in round_results],
+        "accepted_updates": sum(result.decision.accepted for result in round_results),
+        "rejected_updates": sum(not result.decision.accepted for result in round_results),
+        "final_checkpoint": str(current_checkpoint),
+        "final_checkpoint_sha256": _checkpoint_sha256(current_checkpoint),
+    }
+    (output_dir / "recursive_config.json").write_text(
+        json.dumps(config.to_dict(), indent=2) + "\n", encoding="utf-8"
+    )
+    (output_dir / "recursive_summary.json").write_text(
+        json.dumps(summary, indent=2) + "\n", encoding="utf-8"
+    )
+    return RecursiveSelfLearningResult(
+        rounds=round_results,
+        final_checkpoint_path=str(current_checkpoint),
+        summary=summary,
+    )
+
+
 def run_self_learning_round(
     baseline_checkpoint_path: Path,
     train_pool: List[PositionRecord],
@@ -684,6 +818,7 @@ def run_self_learning_round(
     output_dir: Path,
     config: Optional[SelfLearningRoundConfig] = None,
     dev_examples: Optional[List[TrainingExample]] = None,
+    feedback_cache: Optional[Dict[str, FeedbackRecord]] = None,
 ) -> SelfLearningRoundResult:
     """Execute one complete round of the verified self-learning loop.
 
@@ -758,12 +893,37 @@ def run_self_learning_round(
 
     # 3. Generate Stockfish feedback
     engine_settings = EngineSettings(depth=config.engine_depth)
-    with StockfishAdapter(Path(config.stockfish_path)) as adapter:
-        adapter.reset()
-        feedback_records = generate_feedback(selected_records, adapter, engine_settings)
+    selected_by_id = {record.position_id: record for record in selected_records}
+    settings_key = (engine_settings.depth, engine_settings.time_seconds)
+    cached_feedback: List[FeedbackRecord] = []
+    uncached_records: List[PositionRecord] = []
+    for record in selected_records:
+        cached = feedback_cache.get(record.position_id) if feedback_cache is not None else None
+        if (
+            cached is not None
+            and cached.engine_settings.get("depth") == settings_key[0]
+            and cached.engine_settings.get("time_seconds") == settings_key[1]
+        ):
+            cached_feedback.append(cached)
+        else:
+            uncached_records.append(record)
+
+    feedback_records = list(cached_feedback)
+    if uncached_records:
+        with StockfishAdapter(Path(config.stockfish_path)) as adapter:
+            adapter.reset()
+            generated = generate_feedback(uncached_records, adapter, engine_settings)
+        feedback_records.extend(generated)
+        if feedback_cache is not None:
+            feedback_cache.update({item.position_id: item for item in generated})
+    feedback_records.sort(key=lambda item: selected_by_id.get(item.position_id, selected_records[0]).position_id)
 
     # 4. Verify examples
-    verification = verify_feedback(feedback_records, config.verifier)
+    verification = verify_feedback(
+        feedback_records,
+        config.verifier,
+        expected_records=selected_by_id,
+    )
     if verification.num_accepted < config.min_verified_examples:
         # Save rejection metadata and halt
         summary = {
@@ -798,9 +958,12 @@ def run_self_learning_round(
 
     # 6. Evaluate baseline and candidate on identical dev positions
     if dev_examples is None:
-        with StockfishAdapter(Path(config.stockfish_path)) as dev_adapter:
-            dev_adapter.reset()
-            dev_examples, _ = build_examples(dev_pool, dev_adapter, engine_settings)
+        if all(record.candidate_scores_cp is not None for record in dev_pool):
+            dev_examples = [_record_to_example(record) for record in dev_pool]
+        else:
+            with StockfishAdapter(Path(config.stockfish_path)) as dev_adapter:
+                dev_adapter.reset()
+                dev_examples, _ = build_examples(dev_pool, dev_adapter, engine_settings)
 
     baseline_metrics = evaluate(baseline_model, dev_examples)
     candidate_metrics = evaluate(candidate_model, dev_examples)
@@ -875,6 +1038,12 @@ def run_self_learning_round(
         "num_rejected_examples": verification.num_rejected,
         "baseline_metrics": baseline_metrics,
         "candidate_metrics": candidate_metrics,
+        "checkpoint_hashes": {
+            "baseline_input": _checkpoint_sha256(baseline_checkpoint_path),
+            "candidate": _checkpoint_sha256(candidate_ckpt_path),
+            "retained": _checkpoint_sha256(retained_ckpt_path),
+            "current_best": _checkpoint_sha256(current_best_path),
+        },
     }
     (output_dir / "round_summary.json").write_text(json.dumps(summary, indent=2))
 

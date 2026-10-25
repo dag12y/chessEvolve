@@ -16,6 +16,7 @@ import copy
 import json
 import math
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -33,12 +34,14 @@ from chessevolve.self_learning import (
     GateDecision,
     InsufficientVerifiedExamplesError,
     PositionSelectionConfig,
+    RecursiveSelfLearningConfig,
     SelfLearningRoundConfig,
     VerifierConfig,
     evaluate_acceptance_gate,
     fine_tune_candidate,
     generate_feedback,
     run_self_learning_round,
+    run_recursive_self_learning,
     select_candidate_positions,
     verify_feedback,
 )
@@ -265,6 +268,21 @@ def test_generate_feedback_handles_invalid_board(monkeypatch):
     adapter_mock.evaluate_candidates.assert_not_called()
 
 
+def test_generate_feedback_preserves_candidate_score_alignment_and_perspective():
+    from chessevolve.engine import EngineSettings
+
+    adapter_mock = MagicMock()
+    adapter_mock.version.return_value = "test"
+    adapter_mock.evaluate_candidates.return_value = [120, -99999]
+    record = _make_record("p0", candidates=["e2e4", "d2d4"])
+    feedback = generate_feedback([record], adapter_mock, EngineSettings(depth=2))[0]
+    board, moves, _ = adapter_mock.evaluate_candidates.call_args.args
+    assert board.turn is True
+    assert [move.uci() for move in moves] == record.candidate_moves
+    assert feedback.candidate_scores == [120, -99999]
+    assert feedback.reference_best_move == "e2e4"
+
+
 # ===========================================================================
 # 3. Verifier
 # ===========================================================================
@@ -325,6 +343,16 @@ def test_verify_rejects_score_count_mismatch():
     fb = _make_feedback(candidates=["e2e4", "d2d4"], scores=[30])  # 2 moves but 1 score
     result = verify_feedback([fb])
     assert result.num_rejected == 1
+
+
+def test_verify_rejects_feedback_provenance_mismatch():
+    expected = _make_record("p0", source_game_id="expected-game")
+    result = verify_feedback(
+        [_make_feedback("p0")],
+        expected_records={"p0": expected},
+    )
+    assert result.num_accepted == 0
+    assert any("provenance_mismatch" in key for key in result.rejection_reasons)
 
 
 def test_verify_score_margin_filter():
@@ -757,6 +785,49 @@ def test_round_summary_json_complete(tmp_path):
         "num_rejected_examples", "baseline_metrics", "candidate_metrics",
     }
     assert required_keys <= set(summary.keys())
+
+
+def test_recursive_rounds_continue_from_current_best(tmp_path, monkeypatch):
+    baseline_path = tmp_path / "baseline.pt"
+    _save_dummy_checkpoint(baseline_path)
+    train_pool = [_make_record("p0", split="train")]
+    dev_pool = [_make_record("d0", split="dev", source_game_id="g-dev")]
+    calls = []
+
+    def fake_round(baseline, train, dev, output, config, **kwargs):
+        calls.append(Path(baseline))
+        current = Path(output) / "current_best.pt"
+        current.parent.mkdir(parents=True, exist_ok=True)
+        current.write_bytes(b"checkpoint")
+        decision = GateDecision(
+            accepted=False,
+            reason="rejected",
+            baseline_metrics=_metrics(10, 0.5),
+            candidate_metrics=_metrics(11, 0.5),
+            regret_diff_cp=-1,
+            agreement_diff=0,
+            thresholds={},
+        )
+        return SimpleNamespace(
+            decision=decision,
+            summary={"round_number": config.round_number, "accepted": False},
+            output_dir=str(output),
+        )
+
+    monkeypatch.setattr("chessevolve.self_learning.run_self_learning_round", fake_round)
+    result = run_recursive_self_learning(
+        baseline_path,
+        train_pool,
+        dev_pool,
+        tmp_path / "recursive",
+        RecursiveSelfLearningConfig(iterations=2),
+    )
+    assert calls == [
+        baseline_path,
+        tmp_path / "recursive" / "round_001" / "current_best.pt",
+    ]
+    assert result.summary["accepted_updates"] == 0
+    assert result.summary["rejected_updates"] == 2
 
 
 def test_decision_json_contains_thresholds(tmp_path):

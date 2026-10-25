@@ -52,7 +52,11 @@ Top-1 reference agreement measures agreement with the selected engine configurat
 
 ## 5. Verified self-learning
 
-Run a small, fixed number of rounds, such as three.
+Run a small, fixed number of rounds, such as two or three. The recursive
+runner carries only each round's `current_best.pt` into the next round:
+accepted candidates become the next teacher, while rejected candidates are
+never reused. Previously labeled records are cached by position and engine
+settings, so repeated selection does not silently relabel identical inputs.
 
 For each round:
 1. Select training positions using the predeclared policy.
@@ -63,6 +67,11 @@ For each round:
 6. Apply the frozen acceptance rule.
 7. Accept or reject the candidate.
 8. Save metrics, configuration, and checkpoint hashes.
+
+The independent verifier also checks that feedback refers to the selected
+training record exactly (position, source game, FEN, candidate ordering, and
+split). Development records may be evaluated from their frozen labels; the
+final-test records are not inputs to the recursive runner.
 
 ### Suggested primary metric
 
@@ -81,6 +90,23 @@ Top-1 agreement with the Stockfish reference best candidate. Higher agreement is
 Before the first run, define a minimum meaningful reduction in development regret and any permitted secondary-metric degradation. Accept only if the candidate meets those criteria. Otherwise, reject and roll back.
 
 Do not change the acceptance rule after viewing final-test results.
+
+Example using the labeled real-data pilot:
+
+```bash
+.venv/bin/python scripts/run_recursive_self_learning.py \
+  --dataset-dir data/processed/dag12yi_labeled \
+  --manifest data/processed/dag12yi_labeled/manifest.json \
+  --baseline-checkpoint experiments/results/real_baseline_seed0/best.pt \
+  --baseline-checkpoint experiments/results/real_baseline_seed1/best.pt \
+  --output-dir experiments/results/phase3_recursive \
+  --seed 0 --seed 1 --iterations 2 --engine-depth 4
+```
+
+This command writes one directory per seed, per-round decisions, accepted or
+retained checkpoints, development metrics, and a final-test report generated
+after the recursive decisions are complete. A rejected update is a valid
+result; it is not evidence of improvement.
 
 ## 6. Distillation experiment
 
