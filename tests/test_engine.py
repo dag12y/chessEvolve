@@ -86,3 +86,33 @@ def test_reproducibility() -> None:
     with StockfishAdapter(STOCKFISH) as adapter:
         s2 = adapter.evaluate_candidates(board, cands, EngineSettings(depth=6))
     assert s1 == s2
+
+
+def test_stockfish_reset_outside_context_manager() -> None:
+    adapter = StockfishAdapter(STOCKFISH)
+    try:
+        adapter.reset()
+    except RuntimeError:
+        return
+    raise AssertionError("Expected RuntimeError when reset() is called outside context manager")
+
+
+def test_stockfish_reset_inside_context_manager() -> None:
+    board = chess.Board()
+    cands = [chess.Move.from_uci("e2e4"), chess.Move.from_uci("d2d4")]
+    with StockfishAdapter(STOCKFISH) as adapter:
+        s1 = adapter.evaluate_candidates(board, cands, EngineSettings(depth=6))
+        adapter.reset()
+        s2 = adapter.evaluate_candidates(board, cands, EngineSettings(depth=6))
+    assert s1 == s2
+
+
+def test_stockfish_independent_sessions() -> None:
+    board = chess.Board()
+    cands = [chess.Move.from_uci("e2e4")]
+    with StockfishAdapter(STOCKFISH) as a1:
+        s1 = a1.evaluate_candidates(board, cands, EngineSettings(depth=5))
+    with StockfishAdapter(STOCKFISH) as a2:
+        s2 = a2.evaluate_candidates(board, cands, EngineSettings(depth=5))
+    assert s1 == s2
+

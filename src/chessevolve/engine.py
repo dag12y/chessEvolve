@@ -93,6 +93,13 @@ class StockfishAdapter:
             scores.append(numeric)
         return scores
 
+    def reset(self) -> None:
+        """Reset engine state (UCI newgame) to avoid stale transposition tables."""
+        if self._engine is None:
+            raise RuntimeError("StockfishAdapter must be used as a context manager")
+        self._engine.protocol.send_line("ucinewgame")
+        self._engine.ping()
+
     def best_move(self, board: chess.Board, settings: EngineSettings) -> Optional[chess.Move]:
         limit = settings.to_limit()
         try:
