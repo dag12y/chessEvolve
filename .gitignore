@@ -12,7 +12,18 @@ data/splits/*
 models/*
 experiments/results/*
 reports/generated/*
+# Python packaging / tooling
+*.egg-info/
+build/
+dist/
+.coverage
+htmlcov/
+
 *.pt
 *.pth
 *.onnx
 .DS_Store
+# Downloaded Stockfish engine
+tools/stockfish/
+
+
