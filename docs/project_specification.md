@@ -8,7 +8,7 @@
 **Connected track:** Knowledge distillation  
 **Application domain:** Chess move ranking  
 **Runtime target:** CPU  
-**Planned duration:** Seven days
+**Project state:** Complete
 
 ## 2. Problem statement
 
@@ -179,6 +179,15 @@ The project is complete when:
 - Written report.
 - Presentation or concise demonstration.
 
-## 14. Open decisions
+## 14. Final decisions and implementation notes
 
-Before implementation, finalize the data source, dataset size, candidate-move limit, Stockfish analysis budget, feature encoding, model sizes, and numerical acceptance thresholds.
+The implementation uses deterministic legal random-game positions and
+source-game-level train/dev/test splitting. The teacher uses a 780-dimensional
+position representation and a 135-dimensional move representation. The
+baseline is a two-hidden-layer MLP; students use a one-hidden-layer,
+32-unit MLP. Stockfish search depth and acceptance thresholds are recorded in
+the saved run configurations and reports.
+
+The browser demo is an optional presentation layer, not part of model
+training. It exposes only configured checkpoints and keeps final-test data
+outside inference and game-play state.

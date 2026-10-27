@@ -137,6 +137,32 @@ Record:
 - Do not expose final-test positions to training or update selection.
 - Keep all rejection logs for analysis.
 
-## 13. Architecture principle
+## 13. Browser demo architecture
+
+The optional demo is split into two independently runnable processes:
+
+```text
+React/Vite frontend (:5173)
+        │  /api proxy in development
+        ▼
+FastAPI backend (:8000)
+        │
+        ├── model registry (backend/models.json)
+        ├── lazy checkpoint loading
+        └── shared encoding + checkpoint loading code
+```
+
+The frontend owns the chess game state, legal human moves, promotion UI,
+move history, playback, and PGN export. The backend receives a FEN and model
+ID, ranks the current legal moves, and returns the selected move plus the top
+three candidates. The backend deliberately reuses `chessevolve.encoding` and
+`chessevolve.train.load_checkpoint`, so demo inference follows the same feature
+and checkpoint conventions as the training pipeline.
+
+The backend does not mutate checkpoints. Model files are loaded lazily and
+cached for the lifetime of the process. Temperature `0` uses the argmax move;
+positive temperatures sample from a numerically stable softmax distribution.
+
+## 14. Architecture principle
 
 The model proposes; Stockfish supplies reference feedback; the verifier checks data quality; the development gate decides whether an update is retained; and the final test measures performance only after the design is frozen.

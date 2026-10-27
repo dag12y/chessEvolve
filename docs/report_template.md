@@ -7,7 +7,7 @@
 **Stockfish version/settings:** Stockfish 19 UCI (depth 2–4, side-to-move centipawn normalization)  
 **Dataset version/hash:** Manifest SHA-256 `d177c94650c656e10c68b6fcf42e47ccfcf4e488b7521840cdf140a250138642`  
 
-*Primary report file is archived at [`reports/final_report.md`](file:///home/dagm/Projects/chessEvolve/reports/final_report.md).*
+*Primary report file is archived at [`reports/final_report.md`](../reports/final_report.md).*
 
 ---
 
@@ -78,8 +78,8 @@ The current teacher selects high-uncertainty training positions. Stockfish provi
 | **Distilled Student (Seed 1)** | TEST | 0.0% | 42.0 | 3.2310 | 29,889 | 120.2 | 0.077 ± 0.007 |
 
 *Charts generated from actual results:*
-- Development regret: [`experiments/results/m5_dev/regret_by_model_dev.png`](file:///home/dagm/Projects/chessEvolve/experiments/results/m5_dev/regret_by_model_dev.png)
-- Final-test regret: [`experiments/results/m5_test/regret_by_model_test.png`](file:///home/dagm/Projects/chessEvolve/experiments/results/m5_test/regret_by_model_test.png)
+- Development regret: `experiments/results/m5_dev/regret_by_model_dev.png`
+- Final-test regret: `experiments/results/m5_test/regret_by_model_test.png`
 
 ---
 

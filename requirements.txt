@@ -6,3 +6,7 @@ scikit-learn
 matplotlib
 pytest
 requests
+# Demo web app (backend + backend tests)
+fastapi
+uvicorn
+httpx

@@ -198,4 +198,4 @@
 - **Future Directions:** Multi-round self-learning with replay buffers, deeper master-game datasets, and live self-play tournament matches.
 
 > **Speaker Notes (8:15 - 9:00):**
-> "In conclusion, ChessEvolve demonstrates that recursive self-learning can be safely managed on commodity hardware when paired with strict verification and rollback gates. Distillation delivers dramatic parameter and latency savings. Everything in this presentation is fully reproducible with standard CLI commands and verified by our 163 automated tests. Thank you, and I look forward to your questions."
+> "In conclusion, ChessEvolve demonstrates that recursive self-learning can be safely managed on commodity hardware when paired with strict verification and rollback gates. Distillation delivers dramatic parameter and latency savings. Everything in this presentation is fully reproducible with standard CLI commands and verified by our 197 automated tests. Thank you, and I look forward to your questions."

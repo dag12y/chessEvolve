@@ -91,16 +91,15 @@ Before the first run, define a minimum meaningful reduction in development regre
 
 Do not change the acceptance rule after viewing final-test results.
 
-Example using the labeled real-data pilot:
+Example using the checked-in labeled dataset:
 
 ```bash
 .venv/bin/python scripts/run_recursive_self_learning.py \
-  --dataset-dir data/processed/dag12yi_labeled \
-  --manifest data/processed/dag12yi_labeled/manifest.json \
-  --baseline-checkpoint experiments/results/real_baseline_seed0/best.pt \
-  --baseline-checkpoint experiments/results/real_baseline_seed1/best.pt \
-  --output-dir experiments/results/phase3_recursive \
-  --seed 0 --seed 1 --iterations 2 --engine-depth 4
+  --dataset-dir data/processed/dag12yi_phase35_labeled \
+  --manifest data/processed/dag12yi_phase35_labeled/manifest.json \
+  --baseline-checkpoint experiments/results/full_baseline_seed0/best.pt \
+  --output-dir experiments/results/recursive_demo \
+  --seed 0 --iterations 2 --engine-depth 4
 ```
 
 This command writes one directory per seed, per-round decisions, accepted or

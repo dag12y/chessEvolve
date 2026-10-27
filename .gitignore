@@ -26,4 +26,13 @@ htmlcov/
 # Downloaded Stockfish engine
 tools/stockfish/
 
+# Frontend dependencies and generated output
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.cache/
 
+# Local frontend environment files
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
