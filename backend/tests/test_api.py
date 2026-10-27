@@ -34,19 +34,6 @@ def test_models_list() -> None:
     ids = [model["id"] for model in body["models"]]
     expected = [
         "v2_mixed_teacher_seed1",
-        "v2_b_ranked_teacher_seed1",
-        "v2_b_teacher_seed1",
-        "v2_b_teacher_seed0",
-        "v2_b_hard_student_seed0",
-        "v2_b_distilled_student_seed0",
-        "v2_b_hard_student_seed1",
-        "v2_b_distilled_student_seed1",
-        "full_baseline_seed0",
-        "full_baseline_seed1",
-        "full_distillation_seed0_hard",
-        "full_distillation_seed0_distilled",
-        "full_distillation_seed1_hard",
-        "full_distillation_seed1_distilled",
         "random",
     ]
     assert ids == expected
@@ -61,11 +48,11 @@ def test_models_list() -> None:
 def test_move_returns_chosen_and_ranked_top3() -> None:
     response = client.post(
         "/move",
-        json={"fen": START_FEN, "model_id": "full_baseline_seed0", "temperature": 0},
+        json={"fen": START_FEN, "model_id": "v2_mixed_teacher_seed1", "temperature": 0},
     )
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["model_id"] == "full_baseline_seed0"
+    assert body["model_id"] == "v2_mixed_teacher_seed1"
     assert body["temperature"] == 0
     assert body["chosen"]["uci"] in {m.uci() for m in chess.Board(START_FEN).legal_moves}
     assert len(body["top_moves"]) == 3
@@ -78,10 +65,10 @@ def test_move_returns_chosen_and_ranked_top3() -> None:
 
 def test_move_argmax_is_deterministic() -> None:
     first = client.post(
-        "/move", json={"fen": START_FEN, "model_id": "full_baseline_seed1"}
+        "/move", json={"fen": START_FEN, "model_id": "v2_mixed_teacher_seed1"}
     ).json()
     second = client.post(
-        "/move", json={"fen": START_FEN, "model_id": "full_baseline_seed1"}
+        "/move", json={"fen": START_FEN, "model_id": "v2_mixed_teacher_seed1"}
     ).json()
     assert first["chosen"]["uci"] == second["chosen"]["uci"]
     assert first["top_moves"][0]["uci"] == second["top_moves"][0]["uci"]
@@ -90,7 +77,7 @@ def test_move_argmax_is_deterministic() -> None:
 def test_move_temperature_sampling_stays_legal() -> None:
     response = client.post(
         "/move",
-        json={"fen": START_FEN, "model_id": "full_baseline_seed0", "temperature": 1.0},
+        json={"fen": START_FEN, "model_id": "v2_mixed_teacher_seed1", "temperature": 1.0},
     )
     assert response.status_code == 200
     body = response.json()
@@ -105,13 +92,6 @@ def test_move_all_models_work() -> None:
     legal = {m.uci() for m in board.legal_moves}
     for model_id in (
         "v2_mixed_teacher_seed1",
-        "v2_b_ranked_teacher_seed1",
-        "full_baseline_seed0",
-        "full_baseline_seed1",
-        "full_distillation_seed0_hard",
-        "full_distillation_seed0_distilled",
-        "full_distillation_seed1_hard",
-        "full_distillation_seed1_distilled",
         "random",
     ):
         response = client.post(
@@ -124,7 +104,7 @@ def test_move_all_models_work() -> None:
 
 def test_move_illegal_fen() -> None:
     response = client.post(
-        "/move", json={"fen": "this is not a fen", "model_id": "full_baseline_seed0"}
+        "/move", json={"fen": "this is not a fen", "model_id": "v2_mixed_teacher_seed1"}
     )
     assert response.status_code == 400
     assert "fen" in response.json()["detail"].lower()
@@ -135,7 +115,7 @@ def test_move_game_over() -> None:
 
     assert chess.Board(GAME_OVER_FEN).is_game_over()
     response = client.post(
-        "/move", json={"fen": GAME_OVER_FEN, "model_id": "full_baseline_seed0"}
+        "/move", json={"fen": GAME_OVER_FEN, "model_id": "v2_mixed_teacher_seed1"}
     )
     assert response.status_code == 400
     assert "game over" in response.json()["detail"].lower()
@@ -152,7 +132,7 @@ def test_move_unknown_model() -> None:
 def test_move_negative_temperature() -> None:
     response = client.post(
         "/move",
-        json={"fen": START_FEN, "model_id": "full_baseline_seed0", "temperature": -0.5},
+        json={"fen": START_FEN,         "model_id": "v2_mixed_teacher_seed1", "temperature": -0.5},
     )
     assert response.status_code == 400
     assert "temperature" in response.json()["detail"].lower()
@@ -164,7 +144,7 @@ def test_model_takes_forced_mate_with_search() -> None:
         "/move",
         json={
             "fen": fen,
-            "model_id": "v2_b_teacher_seed1",
+            "model_id": "v2_mixed_teacher_seed1",
             "temperature": 0,
             "search_depth": 2,
         },
@@ -178,7 +158,7 @@ def test_search_depth_is_validated() -> None:
         "/move",
         json={
             "fen": START_FEN,
-            "model_id": "v2_b_teacher_seed1",
+            "model_id": "v2_mixed_teacher_seed1",
             "search_depth": 4,
         },
     )
@@ -189,7 +169,7 @@ def test_search_depth_is_validated() -> None:
 def test_default_search_depth_is_two() -> None:
     response = client.post(
         "/move",
-        json={"fen": START_FEN, "model_id": "v2_b_ranked_teacher_seed1"},
+        json={"fen": START_FEN, "model_id": "v2_mixed_teacher_seed1"},
     )
     assert response.status_code == 200
 

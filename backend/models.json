@@ -2,87 +2,9 @@
   "models": [
     {
       "id": "v2_mixed_teacher_seed1",
-      "name": "Chess-Aware B Mixed Teacher (seed 1)",
+      "name": "Recommended model (B mixed loss, seed 1)",
       "type": "checkpoint",
       "path": "experiments/results/v2_mixed_B/best.pt"
-    },
-    {
-      "id": "v2_b_ranked_teacher_seed1",
-      "name": "Chess-Aware B Ranked Teacher (seed 1)",
-      "type": "checkpoint",
-      "path": "experiments/results/v2_ranked_B/best.pt"
-    },
-    {
-      "id": "v2_b_teacher_seed1",
-      "name": "Chess-Aware B Teacher (seed 1)",
-      "type": "checkpoint",
-      "path": "experiments/results/v2_features/B_seed1/best.pt"
-    },
-    {
-      "id": "v2_b_teacher_seed0",
-      "name": "Chess-Aware B Teacher (seed 0)",
-      "type": "checkpoint",
-      "path": "experiments/results/v2_features/B_seed0/best.pt"
-    },
-    {
-      "id": "v2_b_hard_student_seed0",
-      "name": "Chess-Aware B Student (hard, seed 0)",
-      "type": "checkpoint",
-      "path": "experiments/results/v2_distillation_B/hard_seed0.pt"
-    },
-    {
-      "id": "v2_b_distilled_student_seed0",
-      "name": "Chess-Aware B Student (distilled, seed 0)",
-      "type": "checkpoint",
-      "path": "experiments/results/v2_distillation_B/distilled_seed0.pt"
-    },
-    {
-      "id": "v2_b_hard_student_seed1",
-      "name": "Chess-Aware B Student (hard, seed 1)",
-      "type": "checkpoint",
-      "path": "experiments/results/v2_distillation_B/hard_seed1.pt"
-    },
-    {
-      "id": "v2_b_distilled_student_seed1",
-      "name": "Chess-Aware B Student (distilled, seed 1)",
-      "type": "checkpoint",
-      "path": "experiments/results/v2_distillation_B/distilled_seed1.pt"
-    },
-    {
-      "id": "full_baseline_seed0",
-      "name": "Full Baseline (seed 0)",
-      "type": "checkpoint",
-      "path": "experiments/results/full_baseline_seed0/best.pt"
-    },
-    {
-      "id": "full_baseline_seed1",
-      "name": "Full Baseline (seed 1)",
-      "type": "checkpoint",
-      "path": "experiments/results/full_baseline_seed1/best.pt"
-    },
-    {
-      "id": "full_distillation_seed0_hard",
-      "name": "Distillation Seed 0 (hard labels)",
-      "type": "checkpoint",
-      "path": "experiments/results/full_distillation/seed_0/hard_seed0.pt"
-    },
-    {
-      "id": "full_distillation_seed0_distilled",
-      "name": "Distillation Seed 0 (soft targets)",
-      "type": "checkpoint",
-      "path": "experiments/results/full_distillation/seed_0/distilled_seed0.pt"
-    },
-    {
-      "id": "full_distillation_seed1_hard",
-      "name": "Distillation Seed 1 (hard labels)",
-      "type": "checkpoint",
-      "path": "experiments/results/full_distillation/seed_1/hard_seed1.pt"
-    },
-    {
-      "id": "full_distillation_seed1_distilled",
-      "name": "Distillation Seed 1 (soft targets)",
-      "type": "checkpoint",
-      "path": "experiments/results/full_distillation/seed_1/distilled_seed1.pt"
     },
     {
       "id": "random",
