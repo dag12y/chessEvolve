@@ -29,7 +29,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from chessevolve.encoding import encode_move, encode_position
+from chessevolve.encoding import (
+    LEGACY_POSITION_DIM,
+    encode_move,
+    encode_move_legacy,
+    encode_position,
+    encode_position_legacy,
+)
 from chessevolve.train import load_checkpoint
 
 # --------------------------------------------------------------------------- #
@@ -130,8 +136,16 @@ class ModelService:
             )
         model, _entry = loaded
 
-        position_vec = encode_position(board)
-        move_vecs = np.stack([encode_move(board, move) for move in legal_moves])
+        position_encoder = (
+            encode_position_legacy
+            if model.config.position_dim == LEGACY_POSITION_DIM
+            else encode_position
+        )
+        move_encoder = (
+            encode_move_legacy if model.config.move_dim == 158 else encode_move
+        )
+        position_vec = position_encoder(board)
+        move_vecs = np.stack([move_encoder(board, move) for move in legal_moves])
         position_tensor = torch.tensor(position_vec, dtype=torch.float32)
         moves_tensor = torch.tensor(move_vecs, dtype=torch.float32)
 
