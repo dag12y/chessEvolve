@@ -44,6 +44,7 @@ class RealTrainConfig:
     feature_group: str = "D"
     loss_mode: str = "classification"
     ranking_margin_scale: float = 100.0
+    classification_weight: float = 0.5
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -187,6 +188,7 @@ def run_training_on_records(
             rng=train_rng,
             loss_mode=config.loss_mode,
             ranking_margin_scale=config.ranking_margin_scale,
+            classification_weight=config.classification_weight,
         )
         if dev_examples:
             dev_metrics = evaluate(model, dev_examples)

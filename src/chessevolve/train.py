@@ -84,6 +84,7 @@ def train_one_epoch(
     rng: Optional[random.Random] = None,
     loss_mode: str = "classification",
     ranking_margin_scale: float = 100.0,
+    classification_weight: float = 0.5,
 ) -> float:
     if batch_size <= 0:
         raise ValueError(f"batch_size must be positive, got {batch_size}")
@@ -116,6 +117,18 @@ def train_one_epoch(
                 loss = pairwise_ranking_loss(
                     logits, ex.candidate_scores, ranking_margin_scale
                 )
+            elif loss_mode == "mixed":
+                if not 0.0 <= classification_weight <= 1.0:
+                    raise ValueError("classification_weight must be between 0 and 1")
+                classification = F.cross_entropy(
+                    logits.unsqueeze(0), target.unsqueeze(0)
+                )
+                ranking = pairwise_ranking_loss(
+                    logits, ex.candidate_scores, ranking_margin_scale
+                )
+                loss = classification_weight * classification + (
+                    1.0 - classification_weight
+                ) * ranking
             else:
                 raise ValueError(f"unknown loss_mode {loss_mode!r}")
             (loss / actual_batch_size).backward()

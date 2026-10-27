@@ -33,6 +33,7 @@ def test_models_list() -> None:
     body = response.json()
     ids = [model["id"] for model in body["models"]]
     expected = [
+        "v2_mixed_teacher_seed1",
         "v2_b_ranked_teacher_seed1",
         "v2_b_teacher_seed1",
         "v2_b_teacher_seed0",
@@ -103,6 +104,7 @@ def test_move_all_models_work() -> None:
     board = chess.Board(START_FEN)
     legal = {m.uci() for m in board.legal_moves}
     for model_id in (
+        "v2_mixed_teacher_seed1",
         "v2_b_ranked_teacher_seed1",
         "full_baseline_seed0",
         "full_baseline_seed1",
@@ -182,3 +184,11 @@ def test_search_depth_is_validated() -> None:
     )
     assert response.status_code == 400
     assert "search_depth" in response.json()["detail"]
+
+
+def test_default_search_depth_is_three() -> None:
+    response = client.post(
+        "/move",
+        json={"fen": START_FEN, "model_id": "v2_b_ranked_teacher_seed1"},
+    )
+    assert response.status_code == 200

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import torch
+import math
 from pathlib import Path
 
 import pytest
@@ -54,6 +55,21 @@ def test_pairwise_ranking_loss_is_finite_and_rewards_correct_order():
     assert good_loss < bad_loss
     good_loss.backward()
     assert good.grad is not None
+
+
+def test_mixed_loss_is_finite():
+    examples = [_fake_example()]
+    model = MLPRanker(ModelConfig(hidden_dim=8, num_hidden_layers=1))
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    loss = train_one_epoch(
+        model,
+        examples,
+        optimizer,
+        batch_size=1,
+        loss_mode="mixed",
+        classification_weight=0.5,
+    )
+    assert math.isfinite(loss)
 
 
 def test_candidate_label_alignment():

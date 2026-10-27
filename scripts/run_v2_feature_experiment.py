@@ -34,8 +34,13 @@ def main() -> int:
     parser.add_argument("--lr", type=float, default=0.001)
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--hidden-dim", type=int, default=128)
-    parser.add_argument("--loss-mode", choices=("classification", "pairwise"), default="classification")
+    parser.add_argument(
+        "--loss-mode",
+        choices=("classification", "pairwise", "mixed"),
+        default="classification",
+    )
     parser.add_argument("--ranking-margin-scale", type=float, default=100.0)
+    parser.add_argument("--classification-weight", type=float, default=0.5)
     args = parser.parse_args()
 
     manifest = args.dataset_dir / "manifest.json"
@@ -66,6 +71,7 @@ def main() -> int:
         feature_group=args.feature_group,
         loss_mode=args.loss_mode,
         ranking_margin_scale=args.ranking_margin_scale,
+        classification_weight=args.classification_weight,
     )
     run_training_on_records(
         train_records,
