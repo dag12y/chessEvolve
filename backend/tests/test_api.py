@@ -33,6 +33,7 @@ def test_models_list() -> None:
     body = response.json()
     ids = [model["id"] for model in body["models"]]
     expected = [
+        "v2_b_ranked_teacher_seed1",
         "v2_b_teacher_seed1",
         "v2_b_teacher_seed0",
         "v2_b_hard_student_seed0",
@@ -102,6 +103,7 @@ def test_move_all_models_work() -> None:
     board = chess.Board(START_FEN)
     legal = {m.uci() for m in board.legal_moves}
     for model_id in (
+        "v2_b_ranked_teacher_seed1",
         "full_baseline_seed0",
         "full_baseline_seed1",
         "full_distillation_seed0_hard",

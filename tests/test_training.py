@@ -16,6 +16,7 @@ from chessevolve.train import (
     save_checkpoint,
     load_checkpoint,
     run_training,
+    pairwise_ranking_loss,
 )
 from chessevolve.model import MLPRanker, ModelConfig
 
@@ -41,6 +42,18 @@ def test_make_targets_argmax():
     ex2.candidate_scores = [100, -100000, 50]
     ex2.move_features = __import__("numpy").zeros((3, MOVE_DIM), dtype=__import__("numpy").float32)
     assert make_targets(ex2) == 0
+
+
+def test_pairwise_ranking_loss_is_finite_and_rewards_correct_order():
+    good = torch.tensor([2.0, 0.0, -1.0], requires_grad=True)
+    bad = torch.tensor([-1.0, 0.0, 2.0], requires_grad=True)
+    scores = [300, 100, -100]
+    good_loss = pairwise_ranking_loss(good, scores)
+    bad_loss = pairwise_ranking_loss(bad, scores)
+    assert torch.isfinite(good_loss)
+    assert good_loss < bad_loss
+    good_loss.backward()
+    assert good.grad is not None
 
 
 def test_candidate_label_alignment():

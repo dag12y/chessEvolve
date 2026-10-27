@@ -55,12 +55,35 @@ def make_targets(example: TrainingExample) -> int:
     return int(max(range(len(scores)), key=lambda i: scores[i]))  # type: ignore[arg-type]
 
 
+def pairwise_ranking_loss(
+    logits: torch.Tensor, candidate_scores: List[int], margin_scale: float = 100.0
+) -> torch.Tensor:
+    """Penalize incorrectly ordered move pairs, weighted by score separation."""
+    if logits.ndim != 1 or len(candidate_scores) != logits.numel():
+        raise ValueError("logits and candidate_scores must describe one candidate list")
+    if margin_scale <= 0:
+        raise ValueError("margin_scale must be positive")
+    score_tensor = torch.as_tensor(
+        candidate_scores, dtype=logits.dtype, device=logits.device
+    )
+    score_delta = score_tensor.unsqueeze(1) - score_tensor.unsqueeze(0)
+    logit_delta = logits.unsqueeze(1) - logits.unsqueeze(0)
+    better_pairs = score_delta > 0
+    if not torch.any(better_pairs):
+        return logits.sum() * 0.0
+    weights = torch.clamp(score_delta.abs() / margin_scale, max=10.0)
+    pair_losses = weights * F.softplus(-logit_delta)
+    return pair_losses[better_pairs].mean()
+
+
 def train_one_epoch(
     model: MLPRanker,
     examples: List[TrainingExample],
     optimizer: torch.optim.Optimizer,
     batch_size: int,
     rng: Optional[random.Random] = None,
+    loss_mode: str = "classification",
+    ranking_margin_scale: float = 100.0,
 ) -> float:
     if batch_size <= 0:
         raise ValueError(f"batch_size must be positive, got {batch_size}")
@@ -87,7 +110,14 @@ def train_one_epoch(
             moves = torch.from_numpy(ex.move_features).float()
             target = torch.tensor(ex.target_index, dtype=torch.long)
             logits = model(pos, moves)  # (N,)
-            loss = F.cross_entropy(logits.unsqueeze(0), target.unsqueeze(0))
+            if loss_mode == "classification":
+                loss = F.cross_entropy(logits.unsqueeze(0), target.unsqueeze(0))
+            elif loss_mode == "pairwise":
+                loss = pairwise_ranking_loss(
+                    logits, ex.candidate_scores, ranking_margin_scale
+                )
+            else:
+                raise ValueError(f"unknown loss_mode {loss_mode!r}")
             (loss / actual_batch_size).backward()
             total_loss += float(loss.item())
             n += 1

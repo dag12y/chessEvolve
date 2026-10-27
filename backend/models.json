@@ -1,6 +1,12 @@
 {
   "models": [
     {
+      "id": "v2_b_ranked_teacher_seed1",
+      "name": "Chess-Aware B Ranked Teacher (seed 1)",
+      "type": "checkpoint",
+      "path": "experiments/results/v2_ranked_B/best.pt"
+    },
+    {
       "id": "v2_b_teacher_seed1",
       "name": "Chess-Aware B Teacher (seed 1)",
       "type": "checkpoint",

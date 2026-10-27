@@ -42,6 +42,8 @@ class RealTrainConfig:
     num_hidden_layers: int = 2
     dropout: float = 0.0
     feature_group: str = "D"
+    loss_mode: str = "classification"
+    ranking_margin_scale: float = 100.0
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -183,6 +185,8 @@ def run_training_on_records(
             optimizer,
             config.batch_size,
             rng=train_rng,
+            loss_mode=config.loss_mode,
+            ranking_margin_scale=config.ranking_margin_scale,
         )
         if dev_examples:
             dev_metrics = evaluate(model, dev_examples)
