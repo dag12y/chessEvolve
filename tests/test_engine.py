@@ -6,7 +6,7 @@ import chess
 import pytest
 
 from chessevolve.data import PositionRecord
-from chessevolve.engine import EngineSettings, StockfishAdapter
+from chessevolve.engine import EngineSettings, StockfishAdapter, forcing_moves
 
 
 STOCKFISH = "tools/stockfish/stockfish/stockfish-linux-x86-64-universal"
@@ -45,6 +45,16 @@ def test_legal_candidates_are_legal() -> None:
     assert len(cands) == 20
     for move in cands:
         assert move in board.legal_moves
+
+
+def test_forcing_candidates_include_checks_captures_and_promotions() -> None:
+    board = chess.Board("4k3/P7/8/8/8/8/8/4K3 w - - 0 1")
+    forcing = forcing_moves(board)
+    assert any(move.promotion is not None for move in forcing)
+    assert all(
+        board.gives_check(move) or board.is_capture(move) or move.promotion is not None
+        for move in forcing
+    )
 
 
 def test_candidate_evaluation_length_and_perspective() -> None:

@@ -6,6 +6,9 @@ import numpy as np
 import pytest
 
 from chessevolve.encoding import (
+    FEATURE_GROUPS,
+    LEGACY_MOVE_DIM,
+    LEGACY_POSITION_DIM,
     POSITION_DIM,
     MOVE_DIM,
     NUM_PIECE_PLANES,
@@ -16,6 +19,8 @@ from chessevolve.encoding import (
     encode_position_from_fen,
     encode_position_and_move,
     piece_plane,
+    encode_position_legacy,
+    encode_move_legacy,
 )
 
 
@@ -32,8 +37,45 @@ def test_dimensions_and_dtypes():
     assert m.shape == (MOVE_DIM,)
     assert p.dtype == np.float32
     assert m.dtype == np.float32
-    assert POSITION_DIM == 774
-    assert MOVE_DIM == 158
+    assert POSITION_DIM == 1701
+    assert MOVE_DIM == 162
+
+
+def test_feature_group_dimensions_and_legacy_bit_exact():
+    board = chess.Board()
+    move = chess.Move.from_uci("e2e4")
+    assert FEATURE_GROUPS == ("A", "B", "C", "D")
+    assert encode_position(board, "A").shape == (LEGACY_POSITION_DIM,)
+    assert encode_move(board, move, "A").shape == (LEGACY_MOVE_DIM,)
+    assert np.array_equal(encode_position(board, "A"), encode_position_legacy(board))
+    assert np.array_equal(encode_move(board, move, "A"), encode_move_legacy(board, move))
+    assert encode_position(board, "B").shape == (774,)
+    assert encode_move(board, move, "B").shape == (162,)
+    assert encode_position(board, "C").shape == (1573,)
+    assert encode_position(board, "D").shape == (1701,)
+
+
+def test_submitted_checkpoints_load_and_are_deterministic():
+    from pathlib import Path
+    import torch
+    from chessevolve.train import load_checkpoint
+
+    board = chess.Board()
+    moves = list(board.legal_moves)[:8]
+    position = torch.from_numpy(encode_position(board, "A")).float()
+    move_features = torch.from_numpy(
+        np.stack([encode_move(board, move, "A") for move in moves])
+    ).float()
+    for seed in (0, 1):
+        path = Path(f"experiments/results/full_baseline_seed{seed}/best.pt")
+        model_one, _ = load_checkpoint(path)
+        model_two, _ = load_checkpoint(path)
+        with torch.no_grad():
+            output_one = model_one(position, move_features)
+            output_two = model_two(position, move_features)
+        assert model_one.config.position_dim == 774
+        assert model_one.config.move_dim == 158
+        assert torch.equal(output_one, output_two)
 
 
 def test_constants_consistent():
@@ -49,6 +91,33 @@ def test_determinism():
     m2 = encode_move(board, move)
     assert np.array_equal(p1, p2)
     assert np.array_equal(m1, m2)
+
+
+def test_chess_aware_position_features_change_with_position():
+    start = encode_position(chess.Board())
+    developed = chess.Board()
+    for uci in ("e2e4", "e7e5", "g1f3", "b8c6", "f1b5", "g8f6"):
+        developed.push(chess.Move.from_uci(uci))
+    changed = encode_position(developed)
+    # Engine-independent features occupy the appended region after legacy data.
+    assert not np.array_equal(start[774:], changed[774:])
+    assert np.any(start[1565:1693] != changed[1565:1693])  # attack maps
+
+
+def test_move_tactical_features_encode_check_and_capture():
+    board = chess.Board("4k3/8/8/8/8/2R5/8/4K3 w - - 0 1")
+    checking_move = chess.Move.from_uci("c3e3")
+    assert checking_move in board.legal_moves
+    checking = encode_move(board, checking_move)
+    assert checking[158] == 1.0
+    assert checking[159] == 0.0
+
+    capture_board = chess.Board("4k3/8/8/8/8/2R1r3/8/4K3 w - - 0 1")
+    capture = chess.Move.from_uci("c3e3")
+    assert capture in capture_board.legal_moves
+    capture_features = encode_move(capture_board, capture)
+    assert capture_features[159] == 1.0
+    assert capture_features[160] > 0.0
 
 
 def test_starting_position_piece_planes():
@@ -150,6 +219,8 @@ def test_move_one_hot_and_piece():
     assert m[140:153].sum() == 1.0
     # no promotion
     assert m[153] == 1.0
+    assert m[158] == 0.0
+    assert m[159] == 0.0
 
 
 def test_black_move_and_capture():
@@ -337,5 +408,5 @@ def test_package_imports():
     import chessevolve
     assert hasattr(chessevolve, "encode_position")
     assert hasattr(chessevolve, "POSITION_DIM")
-    assert chessevolve.POSITION_DIM == 774
-    assert chessevolve.MOVE_DIM == 158
+    assert chessevolve.POSITION_DIM == 1701
+    assert chessevolve.MOVE_DIM == 162

@@ -29,7 +29,14 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from chessevolve.encoding import encode_move, encode_position
+from chessevolve.encoding import (
+    LEGACY_POSITION_DIM,
+    encode_move,
+    encode_move_legacy,
+    encode_position,
+    encode_position_legacy,
+)
+from chessevolve.engine import forcing_moves
 from chessevolve.train import load_checkpoint
 
 # --------------------------------------------------------------------------- #
@@ -40,6 +47,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 MODELS_PATH = REPO_ROOT / "backend" / "models.json"
 DEFAULT_TEMPERATURE = 0.0
 MAX_TOP_MOVES = 3
+DEFAULT_SEARCH_DEPTH = 2
+MAX_SEARCH_DEPTH = 3
+SEARCH_ROOT_CANDIDATES = 12
+MATE_SCORE = 100000.0
 
 # CORS: the Vite dev server runs on http://localhost:5173 by default.
 CORS_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
@@ -96,7 +107,11 @@ class ModelService:
         return exp / total
 
     def rank(
-        self, board: chess.Board, model_id: str, temperature: float
+        self,
+        board: chess.Board,
+        model_id: str,
+        temperature: float,
+        search_depth: int = DEFAULT_SEARCH_DEPTH,
     ) -> dict[str, Any]:
         """Return the chosen move and the top ranked legal moves for ``board``."""
         if temperature < 0:
@@ -104,11 +119,36 @@ class ModelService:
                 status_code=400,
                 detail=f"temperature must be >= 0, got {temperature}",
             )
+        if not 0 <= search_depth <= MAX_SEARCH_DEPTH:
+            raise HTTPException(
+                status_code=400,
+                detail=f"search_depth must be between 0 and {MAX_SEARCH_DEPTH}",
+            )
         legal_moves = list(board.legal_moves)
         if not legal_moves:
             raise HTTPException(
                 status_code=400,
                 detail="no legal moves: the game is already over",
+            )
+
+        # A learned ranker should never miss a forced immediate checkmate.
+        # This also makes the demo useful for sparse tactical positions that
+        # are underrepresented in the supervised training data.
+        mating_moves = []
+        for move in legal_moves:
+            board.push(move)
+            is_mate = board.is_checkmate()
+            board.pop()
+            if is_mate:
+                mating_moves.append(move)
+        if mating_moves:
+            chosen = mating_moves[0]
+            top = [
+                {"rank": i + 1, "uci": move.uci(), "score": None, "probability": None}
+                for i, move in enumerate(mating_moves[:MAX_TOP_MOVES])
+            ]
+            return _build_response(
+                board, chosen, None, temperature, top, model_id, len(legal_moves)
             )
 
         # --- Random opponent: no model involved --------------------------- #
@@ -130,8 +170,16 @@ class ModelService:
             )
         model, _entry = loaded
 
-        position_vec = encode_position(board)
-        move_vecs = np.stack([encode_move(board, move) for move in legal_moves])
+        position_encoder = (
+            encode_position_legacy
+            if model.config.position_dim == LEGACY_POSITION_DIM
+            else encode_position
+        )
+        move_encoder = (
+            encode_move_legacy if model.config.move_dim == 158 else encode_move
+        )
+        position_vec = position_encoder(board)
+        move_vecs = np.stack([move_encoder(board, move) for move in legal_moves])
         position_tensor = torch.tensor(position_vec, dtype=torch.float32)
         moves_tensor = torch.tensor(move_vecs, dtype=torch.float32)
 
@@ -141,9 +189,22 @@ class ModelService:
 
         order = np.argsort(scores)[::-1]
         probabilities = self._softmax(scores, temperature if temperature > 0 else 1.0)
+        ranking_scores = scores.copy()
 
         if temperature == 0:
-            chosen_index = int(order[0])
+            if search_depth:
+                root_indices = self._search_indices(board, legal_moves, scores)
+                ranking_scores = np.full(len(legal_moves), -np.inf)
+                for move_index in root_indices:
+                    board.push(legal_moves[int(move_index)])
+                    ranking_scores[int(move_index)] = -self._search_value(
+                        board, model, search_depth - 1, position_encoder, move_encoder
+                    )
+                    board.pop()
+                order = np.argsort(ranking_scores)[::-1]
+                chosen_index = int(order[0])
+            else:
+                chosen_index = int(order[0])
         else:
             chosen_index = int(np.random.choice(len(legal_moves), p=probabilities))
 
@@ -155,7 +216,7 @@ class ModelService:
                 {
                     "rank": rank_idx,
                     "uci": move.uci(),
-                    "score": float(scores[move_index]),
+                    "score": float(ranking_scores[move_index]),
                     "probability": float(probabilities[move_index]),
                 }
             )
@@ -169,6 +230,68 @@ class ModelService:
             model_id,
             len(legal_moves),
         )
+
+    def _search_indices(
+        self, board: chess.Board, legal_moves: list[chess.Move], scores: np.ndarray
+    ) -> list[int]:
+        indices = set(
+            int(index)
+            for index in np.argsort(scores)[::-1][:SEARCH_ROOT_CANDIDATES]
+        )
+        forcing = {move.uci() for move in self._forcing_moves(board)}
+        indices.update(
+            index for index, move in enumerate(legal_moves) if move.uci() in forcing
+        )
+        return sorted(indices, key=lambda index: float(scores[index]), reverse=True)
+
+    def _score_position_moves(
+        self, board: chess.Board, model: Any, position_encoder: Any, move_encoder: Any
+    ) -> tuple[list[chess.Move], np.ndarray]:
+        legal_moves = list(board.legal_moves)
+        if not legal_moves:
+            return [], np.empty(0, dtype=np.float64)
+        position_vec = position_encoder(board)
+        move_vecs = np.stack([move_encoder(board, move) for move in legal_moves])
+        position_tensor = torch.tensor(position_vec, dtype=torch.float32)
+        moves_tensor = torch.tensor(move_vecs, dtype=torch.float32)
+        with torch.no_grad():
+            values = model(position_tensor, moves_tensor)
+        return legal_moves, values.detach().cpu().numpy().astype(np.float64)
+
+    @staticmethod
+    def _forcing_moves(board: chess.Board) -> list[chess.Move]:
+        return forcing_moves(board)
+
+    def _search_value(
+        self,
+        board: chess.Board,
+        model: Any,
+        depth: int,
+        position_encoder: Any,
+        move_encoder: Any,
+    ) -> float:
+        if board.is_checkmate():
+            return -MATE_SCORE
+        if board.is_game_over():
+            return 0.0
+        legal_moves, scores = self._score_position_moves(
+            board, model, position_encoder, move_encoder
+        )
+        if not legal_moves:
+            return 0.0
+        if depth <= 0:
+            return float(np.max(scores))
+        best = -np.inf
+        for move_index in self._search_indices(board, legal_moves, scores):
+            board.push(legal_moves[int(move_index)])
+            value = -self._search_value(
+                board, model, depth - 1, position_encoder, move_encoder
+            )
+            board.pop()
+            best = max(best, value)
+            if best >= MATE_SCORE:
+                break
+        return float(best)
 
 
 def _random_move(legal_moves: list[chess.Move]) -> chess.Move:
@@ -216,6 +339,7 @@ class MoveRequest(BaseModel):
     fen: str
     model_id: str
     temperature: float | None = DEFAULT_TEMPERATURE
+    search_depth: int = DEFAULT_SEARCH_DEPTH
 
 
 # --------------------------------------------------------------------------- #
@@ -284,6 +408,6 @@ def get_move(request: MoveRequest) -> dict[str, Any]:
         request.temperature if request.temperature is not None else DEFAULT_TEMPERATURE
     )
     try:
-        return service.rank(board, request.model_id, temperature)
+        return service.rank(board, request.model_id, temperature, request.search_depth)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

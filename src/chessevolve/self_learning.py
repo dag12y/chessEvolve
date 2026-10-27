@@ -50,6 +50,7 @@ class PositionSelectionConfig:
     policy: str = "uncertainty"  # "uncertainty", "random", or "disagreement"
     max_positions: int = 10
     seed: int = 42
+    feature_group: str = "D"
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -122,8 +123,11 @@ def select_candidate_positions(
                 if not valid_moves:
                     continue
 
-                pos_feat = encode_position(board)
-                move_feat = np.stack([encode_move(board, m) for m in valid_moves], axis=0)
+                pos_feat = encode_position(board, config.feature_group)
+                move_feat = np.stack(
+                    [encode_move(board, m, config.feature_group) for m in valid_moves],
+                    axis=0,
+                )
 
                 pos_t = torch.from_numpy(pos_feat).float()
                 moves_t = torch.from_numpy(move_feat).float()
@@ -332,6 +336,7 @@ def verify_feedback(
     feedback_records: List[FeedbackRecord],
     config: Optional[VerifierConfig] = None,
     expected_records: Optional[Dict[str, PositionRecord]] = None,
+    feature_group: str = "D",
 ) -> VerificationResult:
     """Verify generated feedback examples and reject invalid or untrusted data.
 
@@ -444,8 +449,10 @@ def verify_feedback(
                 continue
 
         best_index = int(max(range(len(int_scores)), key=lambda i: int_scores[i]))
-        pos_feat = encode_position(board)
-        move_feat = np.stack([encode_move(board, m) for m in moves], axis=0)
+        pos_feat = encode_position(board, feature_group)
+        move_feat = np.stack(
+            [encode_move(board, m, feature_group) for m in moves], axis=0
+        )
 
         evaluated_record = PositionRecord(
             position_id=rec.position_id,
@@ -723,6 +730,7 @@ class SelfLearningRoundConfig:
     min_verified_examples: int = 2
     gate: GateConfig = field(default_factory=GateConfig)
     verifier: VerifierConfig = field(default_factory=VerifierConfig)
+    feature_group: str = "D"
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -941,6 +949,7 @@ def run_self_learning_round(
         policy=config.selection_policy,
         max_positions=config.num_candidate_positions,
         seed=config.seed,
+        feature_group=config.feature_group,
     )
     selected_records = select_candidate_positions(train_pool, model=baseline_model, config=sel_config)
 
@@ -976,6 +985,7 @@ def run_self_learning_round(
         feedback_records,
         config.verifier,
         expected_records=selected_by_id,
+        feature_group=config.feature_group,
     )
     if verification.num_accepted < config.min_verified_examples:
         # Save rejection metadata and halt
@@ -1013,7 +1023,9 @@ def run_self_learning_round(
     supplied_dev_examples = dev_examples is not None
     if dev_examples is None:
         if all(record.candidate_scores_cp is not None for record in dev_pool):
-            dev_examples = [_record_to_example(record) for record in dev_pool]
+            dev_examples = [
+                _record_to_example(record, config.feature_group) for record in dev_pool
+            ]
         else:
             with StockfishAdapter(Path(config.stockfish_path)) as dev_adapter:
                 dev_adapter.reset()

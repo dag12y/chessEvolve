@@ -206,6 +206,7 @@ def main() -> None:
                         help="Round number (for logging).")
     parser.add_argument("--seed", type=int, default=42,
                         help="Master seed for this round (selection + fine-tuning).")
+    parser.add_argument("--feature-group", choices=("A", "B", "C", "D"), default="D")
 
     args = parser.parse_args()
 
@@ -251,6 +252,7 @@ def main() -> None:
         min_verified_examples=args.min_verified_examples,
         gate=gate_cfg,
         verifier=verifier_cfg,
+        feature_group=args.feature_group,
     )
 
     print(f"\nRunning self-learning round {args.round_number}...")

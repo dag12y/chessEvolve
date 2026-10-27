@@ -33,6 +33,7 @@ class DistillationConfig:
     hidden_dim: int = 32
     num_hidden_layers: int = 1
     dropout: float = 0.0
+    feature_group: str = "D"
 
     def __post_init__(self) -> None:
         if (
@@ -97,7 +98,9 @@ def distillation_loss(
     return loss
 
 
-def _record_to_example(record: PositionRecord) -> TrainingExample:
+def _record_to_example(
+    record: PositionRecord, feature_group: str = "D"
+) -> TrainingExample:
     import chess
 
     board = chess.Board(record.fen)
@@ -110,8 +113,10 @@ def _record_to_example(record: PositionRecord) -> TrainingExample:
         raise ValueError(f"record {record.position_id} has no reference scores")
     scores = [int(score) for score in record.candidate_scores_cp]  # type: ignore[arg-type]
     return TrainingExample(
-        position_features=encode_position(board),
-        move_features=np.stack([encode_move(board, move) for move in moves]),
+        position_features=encode_position(board, feature_group),
+        move_features=np.stack(
+            [encode_move(board, move, feature_group) for move in moves]
+        ),
         candidate_scores=scores,
         target_index=int(np.argmax(scores)),
         position_id=record.position_id,
@@ -120,7 +125,9 @@ def _record_to_example(record: PositionRecord) -> TrainingExample:
     )
 
 
-def records_to_examples(records: Iterable[PositionRecord]) -> List[TrainingExample]:
+def records_to_examples(
+    records: Iterable[PositionRecord], feature_group: str = "D"
+) -> List[TrainingExample]:
     """Convert only eligible records; non-training records are rejected."""
     examples = []
     for record in records:
@@ -128,7 +135,7 @@ def records_to_examples(records: Iterable[PositionRecord]) -> List[TrainingExamp
             raise ValueError(
                 f"student training requires train records, got {record.split!r}"
             )
-        examples.append(_record_to_example(record))
+        examples.append(_record_to_example(record, feature_group))
     return examples
 
 
@@ -267,9 +274,10 @@ def run_student(
     teacher, teacher_metadata = load_checkpoint(teacher_checkpoint)
     for parameter in teacher.parameters():
         parameter.requires_grad_(False)
-    examples = records_to_examples(records)
+    examples = records_to_examples(records, config.feature_group)
     student = MLPRanker(
-        ModelConfig(
+        ModelConfig.for_feature_group(
+            config.feature_group,
             hidden_dim=config.hidden_dim,
             num_hidden_layers=config.num_hidden_layers,
             dropout=config.dropout,
@@ -283,7 +291,9 @@ def run_student(
     if dev_records is not None:
         if any(record.split != "dev" for record in dev_records):
             raise ValueError("development evaluation requires dev records")
-        dev_examples = [_record_to_example(record) for record in dev_records]
+        dev_examples = [
+            _record_to_example(record, config.feature_group) for record in dev_records
+        ]
         dev_metrics = evaluate(student, dev_examples)
     metrics = dict(dev_metrics or train_metrics)
     metrics.update(

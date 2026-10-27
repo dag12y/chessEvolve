@@ -17,6 +17,10 @@ from .splitting import (
     write_split_manifest,
 )
 from .encoding import (
+    DEFAULT_FEATURE_GROUP,
+    FEATURE_GROUPS,
+    LEGACY_MOVE_DIM,
+    LEGACY_POSITION_DIM,
     POSITION_DIM,
     MOVE_DIM,
     NUM_PIECE_PLANES,
@@ -69,6 +73,10 @@ __all__ = [
     "write_split_manifest",
     "POSITION_DIM",
     "MOVE_DIM",
+    "DEFAULT_FEATURE_GROUP",
+    "FEATURE_GROUPS",
+    "LEGACY_POSITION_DIM",
+    "LEGACY_MOVE_DIM",
     "NUM_PIECE_PLANES",
     "SQUARES_PER_PLANE",
     "GLOBAL_FEATURES",
@@ -97,4 +105,3 @@ __all__ = [
     "extract_positions_from_pgn_file",
     "prepare_dataset_from_pgn",
 ]
-
