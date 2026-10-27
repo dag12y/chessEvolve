@@ -35,8 +35,10 @@ have 29,889 parameters, reducing parameter count by 78.0% and checkpoint size
 by approximately 77.6%. The self-learning acceptance gate rejected a degraded
 candidate and preserved the previous checkpoint.
 
-The development and final-test splits contain only three positions each.
-These results are therefore architectural benchmarks, not evidence of
+The current Phase 3.5 split contains 87,993 training, 19,101 development,
+and 19,324 final-test records, partitioned by source game. Two invalid
+final-test positions are excluded consistently during evaluation. Results are
+move-ranking benchmarks against bounded Stockfish labels, not evidence of
 general chess strength. See [`reports/final_report.md`](reports/final_report.md)
 for the complete analysis.
 
@@ -103,7 +105,7 @@ source .venv/bin/activate
 python -m pytest
 ```
 
-The current repository collects 197 tests.
+The current repository collects 204 tests.
 
 The main experiment commands are:
 
