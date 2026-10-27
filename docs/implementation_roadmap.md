@@ -2,7 +2,7 @@
 
 ## Completion record
 
-All milestones below are complete. The repository currently collects 197
+All milestones below are complete. The repository currently collects 204
 Python tests, includes the final experiment artifacts and reports, and ships
 an optional FastAPI + React demo.
 

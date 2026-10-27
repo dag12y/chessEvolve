@@ -13,9 +13,11 @@ replacement for Stockfish and is not presented as a competitive chess engine.
 
 ## Status
 
-The research pipeline and browser demo are complete. The final experiment
-artifacts, report, presentation, backend, frontend, tests, and reproducibility
-instructions are included in this repository.
+The research pipeline and browser demo are complete. The report, presentation,
+backend, frontend, tests, and reproducibility instructions are included in this
+repository. The large dataset, Stockfish binary, recommended checkpoint, and
+other experiment outputs are supplied separately in the submission data
+archive.
 
 | Area | Status |
 |---|---|
@@ -30,10 +32,11 @@ instructions are included in this repository.
 
 ## Results at a glance
 
-The retained teacher has 136,065 trainable parameters. The distilled students
-have 29,889 parameters, reducing parameter count by 78.0% and checkpoint size
-by approximately 77.6%. The self-learning acceptance gate rejected a degraded
-candidate and preserved the previous checkpoint.
+The recommended mixed-loss B teacher has 136,577 trainable parameters. The
+distilled students have 30,017 parameters, reducing parameter count by about
+78%. The self-learning acceptance gate rejected a degraded candidate and
+preserved the previous checkpoint. Historical checkpoints and comparisons are
+retained in the experiment artifact bundle.
 
 The current Phase 3.5 split contains 87,993 training, 19,101 development,
 and 19,324 final-test records, partitioned by source game. Two invalid
@@ -68,8 +71,10 @@ installs.
 - Python 3.10+ (the project has been tested with Python 3.14).
 - Node.js 18+ and npm for the browser demo.
 - A CPU is sufficient; no GPU is required.
-- The repository includes a Linux x86_64 Stockfish binary under
-  `tools/stockfish/stockfish/`.
+- The research pipeline requires a Linux x86_64 Stockfish binary under
+  `tools/stockfish/stockfish/`. The binary is excluded from GitHub because it
+  exceeds GitHub's file limit; distribute it using the submission data archive
+  and preserve `tools/stockfish/stockfish/Copying.txt`.
 
 ```bash
 python3 -m venv .venv
@@ -201,8 +206,16 @@ cd frontend && npm ci && npm run build
 
 Confirm that `git status` does not contain `frontend/node_modules/`, `frontend/dist/`,
 Python caches, secrets, or locally generated checkpoints. Commit source,
-configuration, lockfiles, documentation, and tests; publish large experiment
-outputs separately if the hosting platform has repository-size limits.
+configuration, lockfiles, documentation, and tests; publish the dataset,
+Stockfish binary, and large experiment outputs separately if the hosting
+platform has repository-size limits.
+
+For the submission bundle, clone the repository and extract the archive at its
+root:
+
+```bash
+tar -xzf chessevolve-submission-data.tar.gz
+```
 
 ## License and external components
 

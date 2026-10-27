@@ -182,14 +182,15 @@ The project is complete when:
 ## 14. Final decisions and implementation notes
 
 The implementation uses deterministic legal random-game positions and
-source-game-level train/dev/test splitting. The current feature-expanded
-teacher uses a 1,701-dimensional position representation and a 162-dimensional
-move representation. The representation includes material, mobility, king
-safety, pawn structure, piece-square priors, attack maps, and move-level
-tactical flags. The
-baseline is a two-hidden-layer MLP; students use a one-hidden-layer,
-32-unit MLP. Stockfish search depth and acceptance thresholds are recorded in
-the saved run configurations and reports.
+source-game-level train/dev/test splitting. The feature experiments compare position representations from 774 dimensions
+(groups A/B) through 1,573 dimensions (group C) and 1,701 dimensions (group
+D), with 162-dimensional tactical move features for groups B-D. The
+representations add material, mobility, king safety, pawn structure,
+piece-square priors, attack maps, and move-level tactical flags incrementally.
+The recommended mixed-loss B model is a two-hidden-layer MLP; the distillation
+students use a one-hidden-layer, 32-unit MLP. Stockfish search depth and
+acceptance thresholds are recorded in the saved run configurations and
+reports.
 
 The browser demo is an optional presentation layer, not part of model
 training. It exposes only configured checkpoints and keeps final-test data
