@@ -39,6 +39,7 @@ def main() -> None:
     parser.add_argument("--hard-loss-weight", type=float, default=0.0)
     parser.add_argument("--hidden-dim", type=int, default=32)
     parser.add_argument("--num-hidden-layers", type=int, default=1)
+    parser.add_argument("--feature-group", choices=("A", "B", "C", "D"), default="D")
     args = parser.parse_args()
     seeds = args.seed or [0, 1]
     records = validate_records_against_manifest(
@@ -71,6 +72,7 @@ def main() -> None:
             hard_loss_weight=args.hard_loss_weight,
             hidden_dim=args.hidden_dim,
             num_hidden_layers=args.num_hidden_layers,
+            feature_group=args.feature_group,
         )
         for method in ("hard", "distilled"):
             all_results.append(

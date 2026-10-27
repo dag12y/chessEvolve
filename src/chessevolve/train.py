@@ -33,6 +33,7 @@ class TrainConfig:
     num_games: int = 20
     max_plies: int = 16
     stockfish_path: str = "tools/stockfish/stockfish/stockfish-linux-x86-64-universal"
+    feature_group: str = "D"
 
     def to_dict(self) -> dict:
         return asdict(self)

@@ -1,6 +1,42 @@
 {
   "models": [
     {
+      "id": "v2_b_teacher_seed1",
+      "name": "Chess-Aware B Teacher (seed 1)",
+      "type": "checkpoint",
+      "path": "experiments/results/v2_features/B_seed1/best.pt"
+    },
+    {
+      "id": "v2_b_teacher_seed0",
+      "name": "Chess-Aware B Teacher (seed 0)",
+      "type": "checkpoint",
+      "path": "experiments/results/v2_features/B_seed0/best.pt"
+    },
+    {
+      "id": "v2_b_hard_student_seed0",
+      "name": "Chess-Aware B Student (hard, seed 0)",
+      "type": "checkpoint",
+      "path": "experiments/results/v2_distillation_B/hard_seed0.pt"
+    },
+    {
+      "id": "v2_b_distilled_student_seed0",
+      "name": "Chess-Aware B Student (distilled, seed 0)",
+      "type": "checkpoint",
+      "path": "experiments/results/v2_distillation_B/distilled_seed0.pt"
+    },
+    {
+      "id": "v2_b_hard_student_seed1",
+      "name": "Chess-Aware B Student (hard, seed 1)",
+      "type": "checkpoint",
+      "path": "experiments/results/v2_distillation_B/hard_seed1.pt"
+    },
+    {
+      "id": "v2_b_distilled_student_seed1",
+      "name": "Chess-Aware B Student (distilled, seed 1)",
+      "type": "checkpoint",
+      "path": "experiments/results/v2_distillation_B/distilled_seed1.pt"
+    },
+    {
       "id": "full_baseline_seed0",
       "name": "Full Baseline (seed 0)",
       "type": "checkpoint",

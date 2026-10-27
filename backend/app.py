@@ -117,6 +117,26 @@ class ModelService:
                 detail="no legal moves: the game is already over",
             )
 
+        # A learned ranker should never miss a forced immediate checkmate.
+        # This also makes the demo useful for sparse tactical positions that
+        # are underrepresented in the supervised training data.
+        mating_moves = []
+        for move in legal_moves:
+            board.push(move)
+            is_mate = board.is_checkmate()
+            board.pop()
+            if is_mate:
+                mating_moves.append(move)
+        if mating_moves:
+            chosen = mating_moves[0]
+            top = [
+                {"rank": i + 1, "uci": move.uci(), "score": None, "probability": None}
+                for i, move in enumerate(mating_moves[:MAX_TOP_MOVES])
+            ]
+            return _build_response(
+                board, chosen, None, temperature, top, model_id, len(legal_moves)
+            )
+
         # --- Random opponent: no model involved --------------------------- #
         if model_id == "random":
             chosen = _random_move(legal_moves)

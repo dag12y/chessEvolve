@@ -52,6 +52,7 @@ def main() -> int:
     parser.add_argument("--gate-min-regret-reduction", type=float, default=0.0)
     parser.add_argument("--gate-max-agreement-drop", type=float, default=0.05)
     parser.add_argument("--min-score-margin", type=int, default=None)
+    parser.add_argument("--feature-group", choices=("A", "B", "C", "D"), default="D")
     args = parser.parse_args()
 
     seeds = args.seed or list(range(len(args.baseline_checkpoint)))
@@ -112,6 +113,7 @@ def main() -> int:
             allowed_split="train",
             min_score_margin_cp=args.min_score_margin,
         ),
+        feature_group=args.feature_group,
     )
 
     all_runs = []

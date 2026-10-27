@@ -6,6 +6,9 @@ import numpy as np
 import pytest
 
 from chessevolve.encoding import (
+    FEATURE_GROUPS,
+    LEGACY_MOVE_DIM,
+    LEGACY_POSITION_DIM,
     POSITION_DIM,
     MOVE_DIM,
     NUM_PIECE_PLANES,
@@ -16,6 +19,8 @@ from chessevolve.encoding import (
     encode_position_from_fen,
     encode_position_and_move,
     piece_plane,
+    encode_position_legacy,
+    encode_move_legacy,
 )
 
 
@@ -34,6 +39,43 @@ def test_dimensions_and_dtypes():
     assert m.dtype == np.float32
     assert POSITION_DIM == 1701
     assert MOVE_DIM == 162
+
+
+def test_feature_group_dimensions_and_legacy_bit_exact():
+    board = chess.Board()
+    move = chess.Move.from_uci("e2e4")
+    assert FEATURE_GROUPS == ("A", "B", "C", "D")
+    assert encode_position(board, "A").shape == (LEGACY_POSITION_DIM,)
+    assert encode_move(board, move, "A").shape == (LEGACY_MOVE_DIM,)
+    assert np.array_equal(encode_position(board, "A"), encode_position_legacy(board))
+    assert np.array_equal(encode_move(board, move, "A"), encode_move_legacy(board, move))
+    assert encode_position(board, "B").shape == (774,)
+    assert encode_move(board, move, "B").shape == (162,)
+    assert encode_position(board, "C").shape == (1573,)
+    assert encode_position(board, "D").shape == (1701,)
+
+
+def test_submitted_checkpoints_load_and_are_deterministic():
+    from pathlib import Path
+    import torch
+    from chessevolve.train import load_checkpoint
+
+    board = chess.Board()
+    moves = list(board.legal_moves)[:8]
+    position = torch.from_numpy(encode_position(board, "A")).float()
+    move_features = torch.from_numpy(
+        np.stack([encode_move(board, move, "A") for move in moves])
+    ).float()
+    for seed in (0, 1):
+        path = Path(f"experiments/results/full_baseline_seed{seed}/best.pt")
+        model_one, _ = load_checkpoint(path)
+        model_two, _ = load_checkpoint(path)
+        with torch.no_grad():
+            output_one = model_one(position, move_features)
+            output_two = model_two(position, move_features)
+        assert model_one.config.position_dim == 774
+        assert model_one.config.move_dim == 158
+        assert torch.equal(output_one, output_two)
 
 
 def test_constants_consistent():

@@ -41,6 +41,7 @@ class RealTrainConfig:
     hidden_dim: int = 128
     num_hidden_layers: int = 2
     dropout: float = 0.0
+    feature_group: str = "D"
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -60,6 +61,7 @@ class RealTrainConfig:
             num_games=0,
             max_plies=0,
             stockfish_path="",
+            feature_group=self.feature_group,
         )
 
 
@@ -129,7 +131,7 @@ def run_training_on_records(
     train_skip_count = 0
     for rec in train_records:
         try:
-            ex = _record_to_example(rec)
+            ex = _record_to_example(rec, config.feature_group)
             ex.target_index = make_targets(ex)
             train_examples.append(ex)
         except (ValueError, Exception):
@@ -139,7 +141,7 @@ def run_training_on_records(
     dev_skip_count = 0
     for rec in dev_records:
         try:
-            ex = _record_to_example(rec)
+            ex = _record_to_example(rec, config.feature_group)
             ex.target_index = make_targets(ex)
             dev_examples.append(ex)
         except (ValueError, Exception):
@@ -156,7 +158,8 @@ def run_training_on_records(
     }
 
     # --- Model ----------------------------------------------------------------
-    model_config = ModelConfig(
+    model_config = ModelConfig.for_feature_group(
+        config.feature_group,
         hidden_dim=config.hidden_dim,
         num_hidden_layers=config.num_hidden_layers,
         dropout=config.dropout,
@@ -231,8 +234,8 @@ def run_training_on_records(
             }
         )
 
-        if dev_metrics["mean_regret_cp"] < best_dev_regret:
-            best_dev_regret = dev_metrics["mean_regret_cp"]
+        if dev_metrics["non_mate_regret_cp"] < best_dev_regret:
+            best_dev_regret = dev_metrics["non_mate_regret_cp"]
             save_checkpoint(
                 best_ckpt,
                 model,
@@ -260,7 +263,9 @@ def run_training_on_records(
     config_data = {**config.to_dict(), **(metadata or {})}
     (output_dir / "config.json").write_text(json.dumps(config_data, indent=2) + "\n", encoding="utf-8")
     (output_dir / "split_info.json").write_text(json.dumps(split_info, indent=2) + "\n", encoding="utf-8")
-    best_metrics = min(history, key=lambda item: item["mean_regret_cp"]) if history else {}
+    best_metrics = (
+        min(history, key=lambda item: item["non_mate_regret_cp"]) if history else {}
+    )
     best_size = best_ckpt.stat().st_size if best_ckpt.exists() else 0
     (output_dir / "metrics.json").write_text(
         json.dumps(
@@ -280,6 +285,10 @@ def run_training_on_records(
                 },
                 "params": sum(parameter.numel() for parameter in model.parameters()),
                 "best_checkpoint_size_bytes": best_size,
+                "final_checkpoint_size_bytes": final_ckpt.stat().st_size
+                if final_ckpt.exists()
+                else 0,
+                "feature_group": config.feature_group,
                 "training_time_seconds": time.perf_counter() - started_at,
             },
             indent=2,

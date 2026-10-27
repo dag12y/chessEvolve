@@ -8,11 +8,20 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
-from .encoding import POSITION_DIM, MOVE_DIM
+from .encoding import (
+    DEFAULT_FEATURE_GROUP,
+    FEATURE_GROUPS,
+    MOVE_DIM,
+    POSITION_DIM,
+    LEGACY_MOVE_DIM,
+    LEGACY_POSITION_DIM,
+    POSITION_FEATURES_C,
+)
 
 
 @dataclass
 class ModelConfig:
+    feature_group: str = DEFAULT_FEATURE_GROUP
     position_dim: int = POSITION_DIM
     move_dim: int = MOVE_DIM
     hidden_dim: int = 128
@@ -21,6 +30,24 @@ class ModelConfig:
 
     def to_dict(self) -> dict:
         return asdict(self)
+
+    @classmethod
+    def for_feature_group(cls, feature_group: str, **kwargs: object) -> "ModelConfig":
+        if feature_group not in FEATURE_GROUPS:
+            raise ValueError(f"unknown feature group {feature_group!r}")
+        position_dim = {
+            "A": LEGACY_POSITION_DIM,
+            "B": LEGACY_POSITION_DIM,
+            "C": POSITION_FEATURES_C,
+            "D": POSITION_DIM,
+        }[feature_group]
+        move_dim = LEGACY_MOVE_DIM if feature_group == "A" else MOVE_DIM
+        return cls(
+            feature_group=feature_group,
+            position_dim=position_dim,
+            move_dim=move_dim,
+            **kwargs,
+        )
 
 
 class MLPRanker(nn.Module):

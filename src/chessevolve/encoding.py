@@ -72,9 +72,14 @@ import numpy as np
 
 NUM_PIECE_PLANES = 12
 SQUARES_PER_PLANE = 64
+FEATURE_GROUPS = ("A", "B", "C", "D")
+DEFAULT_FEATURE_GROUP = "D"
+LEGACY_GLOBAL_FEATURES = 6
+POSITION_FEATURES_C = 1573
+MOVE_TACTICAL_FEATURES = 4
 GLOBAL_FEATURES = 933
-POSITION_DIM = NUM_PIECE_PLANES * SQUARES_PER_PLANE + GLOBAL_FEATURES  # 1701
-MOVE_DIM = 162
+POSITION_DIM = NUM_PIECE_PLANES * SQUARES_PER_PLANE + GLOBAL_FEATURES  # D: 1701
+MOVE_DIM = 158 + MOVE_TACTICAL_FEATURES  # B/C/D: 162
 LEGACY_POSITION_DIM = 774
 LEGACY_MOVE_DIM = 158
 
@@ -179,7 +184,7 @@ def piece_plane(piece: chess.Piece) -> int:
 
 # --- Position encoding -----------------------------------------------------
 
-def encode_position(board: chess.Board) -> np.ndarray:
+def _encode_position_full(board: chess.Board) -> np.ndarray:
     """Encode a board position as a flat :attr:`POSITION_DIM` float32 vector.
 
     Parameters
@@ -296,11 +301,34 @@ def encode_position(board: chess.Board) -> np.ndarray:
     return features
 
 
-def encode_position_from_fen(fen: str) -> np.ndarray:
+def _validate_feature_group(feature_group: str) -> str:
+    if feature_group not in FEATURE_GROUPS:
+        raise ValueError(
+            f"feature_group must be one of {FEATURE_GROUPS}, got {feature_group!r}"
+        )
+    return feature_group
+
+
+def encode_position(
+    board: chess.Board, feature_group: str = DEFAULT_FEATURE_GROUP
+) -> np.ndarray:
+    """Encode a board using feature group A, B, C, or D."""
+    group = _validate_feature_group(feature_group)
+    if group in {"A", "B"}:
+        return encode_position_legacy(board)
+    full = _encode_position_full(board)
+    if group == "C":
+        return full[:POSITION_FEATURES_C].copy()
+    return full
+
+
+def encode_position_from_fen(
+    fen: str, feature_group: str = DEFAULT_FEATURE_GROUP
+) -> np.ndarray:
     """Encode a FEN string as a position vector (thin wrapper over :func:`encode_position`)."""
     if not isinstance(fen, str):
         raise TypeError(f"fen must be a str, got {type(fen).__name__}")
-    return encode_position(chess.Board(fen))
+    return encode_position(chess.Board(fen), feature_group)
 
 
 def encode_position_legacy(board: chess.Board) -> np.ndarray:
@@ -328,7 +356,7 @@ def encode_position_legacy(board: chess.Board) -> np.ndarray:
 
 # --- Move encoding ---------------------------------------------------------
 
-def encode_move(board: chess.Board, move: chess.Move) -> np.ndarray:
+def _encode_move_full(board: chess.Board, move: chess.Move) -> np.ndarray:
     """Encode a legal candidate move as a flat :attr:`MOVE_DIM` float32 vector.
 
     Parameters
@@ -411,17 +439,31 @@ def encode_move(board: chess.Board, move: chess.Move) -> np.ndarray:
     return features
 
 
+def encode_move(
+    board: chess.Board,
+    move: chess.Move,
+    feature_group: str = DEFAULT_FEATURE_GROUP,
+) -> np.ndarray:
+    """Encode a legal move using feature group A, B, C, or D."""
+    group = _validate_feature_group(feature_group)
+    if group == "A":
+        return encode_move_legacy(board, move)
+    return _encode_move_full(board, move)
+
+
 def encode_move_legacy(board: chess.Board, move: chess.Move) -> np.ndarray:
     """Encode moves for checkpoints trained before feature expansion."""
-    features = encode_move(board, move)
+    features = _encode_move_full(board, move)
     return features[:LEGACY_MOVE_DIM].copy()
 
 
 def encode_position_and_move(
-    board: chess.Board, move: chess.Move
+    board: chess.Board,
+    move: chess.Move,
+    feature_group: str = DEFAULT_FEATURE_GROUP,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Encode a position and one of its legal moves together.
 
     Returns ``(position_vector, move_vector)``.
     """
-    return encode_position(board), encode_move(board, move)
+    return encode_position(board, feature_group), encode_move(board, move, feature_group)
