@@ -182,8 +182,11 @@ The project is complete when:
 ## 14. Final decisions and implementation notes
 
 The implementation uses deterministic legal random-game positions and
-source-game-level train/dev/test splitting. The teacher uses a 780-dimensional
-position representation and a 135-dimensional move representation. The
+source-game-level train/dev/test splitting. The current feature-expanded
+teacher uses a 1,701-dimensional position representation and a 162-dimensional
+move representation. The representation includes material, mobility, king
+safety, pawn structure, piece-square priors, attack maps, and move-level
+tactical flags. The
 baseline is a two-hidden-layer MLP; students use a one-hidden-layer,
 32-unit MLP. Stockfish search depth and acceptance thresholds are recorded in
 the saved run configurations and reports.

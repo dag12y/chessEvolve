@@ -32,8 +32,11 @@ Positions are generated from legal random games and partitioned strictly at the 
 - **Test:** 1 game (3 positions, 25.0%)
 
 ### Model
-- **Position Encoding:** 780 dimensions (768 piece bitboards + 12 context features).
-- **Move Encoding:** 135 dimensions (64 source + 64 destination + 7 move attributes).
+- **Position Encoding:** 1,701 dimensions (piece planes plus material, mobility,
+  king safety, pawn structure, piece-square priors, attack maps, and global
+  context features).
+- **Move Encoding:** 162 dimensions (source/destination planes, piece/capture/
+  promotion one-hot features, and tactical/value features).
 - **Teacher:** PyTorch MLP (2 hidden layers, `hidden_dim=128`, 136,065 trainable parameters).
 - **Student:** PyTorch MLP (1 hidden layer, `hidden_dim=32`, 29,889 trainable parameters).
 
