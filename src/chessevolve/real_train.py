@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import json
 import random
+import statistics
+import time
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import List, Optional
@@ -66,6 +68,7 @@ def run_training_on_records(
     dev_records: List[PositionRecord],
     config: RealTrainConfig,
     output_dir: Path,
+    metadata: Optional[dict] = None,
 ) -> dict:
     """Train an MLPRanker on real labeled PositionRecords.
 
@@ -165,10 +168,12 @@ def run_training_on_records(
     # --- Training loop --------------------------------------------------------
     train_rng = random.Random(config.seed)
     history = []
-    best_dev_loss = float("inf")
+    best_dev_regret = float("inf")
     best_ckpt = output_dir / "best.pt"
+    started_at = time.perf_counter()
 
     for epoch in range(1, config.epochs + 1):
+        epoch_started_at = time.perf_counter()
         train_loss = train_one_epoch(
             model,
             train_examples,
@@ -178,13 +183,56 @@ def run_training_on_records(
         )
         if dev_examples:
             dev_metrics = evaluate(model, dev_examples)
+            regrets = []
+            non_mate_regrets = []
+            for ex in dev_examples:
+                with torch.no_grad():
+                    pred = int(
+                        torch.argmax(
+                            model(
+                                torch.from_numpy(ex.position_features).float(),
+                                torch.from_numpy(ex.move_features).float(),
+                            )
+                        ).item()
+                    )
+                regret = ex.candidate_scores[ex.target_index] - ex.candidate_scores[pred]
+                regrets.append(regret)
+                if not any(abs(score) >= 90000 for score in ex.candidate_scores):
+                    non_mate_regrets.append(regret)
+            dev_metrics.update(
+                {
+                    "median_regret_cp": float(statistics.median(regrets)) if regrets else 0.0,
+                    "non_mate_regret_cp": (
+                        float(sum(non_mate_regrets) / len(non_mate_regrets))
+                        if non_mate_regrets
+                        else 0.0
+                    ),
+                    "non_mate_num_examples": len(non_mate_regrets),
+                }
+            )
         else:
-            dev_metrics = {"loss": float("inf"), "top1_agreement": 0.0, "mean_regret_cp": 0.0, "num_examples": 0}
+            dev_metrics = {
+                "loss": float("inf"),
+                "top1_agreement": 0.0,
+                "mean_regret_cp": 0.0,
+                "median_regret_cp": 0.0,
+                "non_mate_regret_cp": 0.0,
+                "non_mate_num_examples": 0,
+                "num_examples": 0,
+            }
 
-        history.append({"epoch": epoch, "train_loss": train_loss, **dev_metrics})
+        epoch_seconds = time.perf_counter() - epoch_started_at
+        history.append(
+            {
+                "epoch": epoch,
+                "train_loss": train_loss,
+                "epoch_seconds": epoch_seconds,
+                **dev_metrics,
+            }
+        )
 
-        if dev_metrics["loss"] < best_dev_loss:
-            best_dev_loss = dev_metrics["loss"]
+        if dev_metrics["mean_regret_cp"] < best_dev_regret:
+            best_dev_regret = dev_metrics["mean_regret_cp"]
             save_checkpoint(
                 best_ckpt,
                 model,
@@ -197,7 +245,10 @@ def run_training_on_records(
             f"epoch {epoch}: train_loss={train_loss:.4f} "
             f"dev_loss={dev_metrics['loss']:.4f} "
             f"dev_top1={dev_metrics['top1_agreement']:.3f} "
-            f"dev_regret={dev_metrics['mean_regret_cp']:.1f}"
+            f"dev_regret={dev_metrics['mean_regret_cp']:.1f} "
+            f"dev_non_mate_regret={dev_metrics['non_mate_regret_cp']:.1f} "
+            f"dev_median_regret={dev_metrics['median_regret_cp']:.1f} "
+            f"epoch_seconds={epoch_seconds:.1f}"
         )
 
     # Save final checkpoint.
@@ -206,13 +257,42 @@ def run_training_on_records(
 
     # Persist logs.
     (output_dir / "history.json").write_text(json.dumps(history, indent=2) + "\n", encoding="utf-8")
-    (output_dir / "config.json").write_text(json.dumps(config.to_dict(), indent=2) + "\n", encoding="utf-8")
+    config_data = {**config.to_dict(), **(metadata or {})}
+    (output_dir / "config.json").write_text(json.dumps(config_data, indent=2) + "\n", encoding="utf-8")
     (output_dir / "split_info.json").write_text(json.dumps(split_info, indent=2) + "\n", encoding="utf-8")
+    best_metrics = min(history, key=lambda item: item["mean_regret_cp"]) if history else {}
+    best_size = best_ckpt.stat().st_size if best_ckpt.exists() else 0
+    (output_dir / "metrics.json").write_text(
+        json.dumps(
+            {
+                "best_epoch": best_metrics.get("epoch"),
+                "dev": {
+                    key: best_metrics.get(key)
+                    for key in (
+                        "top1_agreement",
+                        "mean_regret_cp",
+                        "median_regret_cp",
+                        "non_mate_regret_cp",
+                        "loss",
+                        "num_examples",
+                        "non_mate_num_examples",
+                    )
+                },
+                "params": sum(parameter.numel() for parameter in model.parameters()),
+                "best_checkpoint_size_bytes": best_size,
+                "training_time_seconds": time.perf_counter() - started_at,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
     return {
         "history": history,
         "split_info": split_info,
         "output_dir": str(output_dir),
+        "metrics": best_metrics,
     }
 
 

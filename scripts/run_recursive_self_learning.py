@@ -14,6 +14,7 @@ if str(_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(_ROOT / "src"))
 
 from chessevolve.distillation import (  # noqa: E402
+    _record_to_example,
     load_records,
     validate_records_against_manifest,
 )
@@ -24,7 +25,9 @@ from chessevolve.self_learning import (  # noqa: E402
     SelfLearningRoundConfig,
     VerifierConfig,
     run_recursive_self_learning,
+    evaluate_regret_metrics,
 )
+from chessevolve.train import load_checkpoint
 
 
 def main() -> int:
@@ -66,12 +69,37 @@ def main() -> int:
     test_records = validate_records_against_manifest(
         load_records(dataset_dir / "test_records.jsonl"), manifest, "test"
     )
+    valid_test_records = []
+    invalid_test_ids = []
+    for record in test_records:
+        try:
+            _record_to_example(record)
+        except ValueError as exc:
+            if "board is not a valid position" not in str(exc):
+                raise
+            invalid_test_ids.append(record.position_id)
+            continue
+        valid_test_records.append(record)
+    labeling_summary = json.loads((dataset_dir / "labeling_summary.json").read_text(encoding="utf-8"))
+    labeling_depth = labeling_summary["engine_settings"]["depth"]
+    if labeling_depth != args.engine_depth:
+        parser.error(
+            f"dataset labeling depth is {labeling_depth}, but --engine-depth is {args.engine_depth}"
+        )
+    for record in train_records + dev_records + test_records:
+        if record.engine_settings is None or record.engine_settings.get("depth") != args.engine_depth:
+            parser.error(
+                f"record {record.position_id} has engine depth "
+                f"{None if record.engine_settings is None else record.engine_settings.get('depth')}; "
+                f"expected {args.engine_depth}"
+            )
 
     gate = GateConfig(
         min_regret_reduction_cp=args.gate_min_regret_reduction,
         max_agreement_drop=args.gate_max_agreement_drop,
     )
     round_config = SelfLearningRoundConfig(
+        num_candidate_positions=args.num_candidate_positions,
         selection_policy=args.selection_policy,
         engine_depth=args.engine_depth,
         stockfish_path=str(args.stockfish_path),
@@ -117,8 +145,20 @@ def main() -> int:
             models, dev_records, manifest, "dev", warmup_runs=2, timed_runs=5
         )
         test_summary = evaluate_model_suite(
-            models, test_records, manifest, "test", warmup_runs=2, timed_runs=5
+            models, valid_test_records, manifest, "test", warmup_runs=2, timed_runs=5
         )
+        baseline_model, _ = load_checkpoint(baseline)
+        final_model, _ = load_checkpoint(result.final_checkpoint_path)
+        dev_examples = [_record_to_example(record) for record in dev_records]
+        test_examples = [_record_to_example(record) for record in valid_test_records]
+        dev_summary["regret_metrics"] = {
+            "baseline": evaluate_regret_metrics(baseline_model, dev_examples),
+            "final_accepted": evaluate_regret_metrics(final_model, dev_examples),
+        }
+        test_summary["regret_metrics"] = {
+            "baseline": evaluate_regret_metrics(baseline_model, test_examples),
+            "final_accepted": evaluate_regret_metrics(final_model, test_examples),
+        }
         (run_dir / "final_dev_results.json").write_text(
             json.dumps(dev_summary, indent=2) + "\n", encoding="utf-8"
         )
@@ -133,6 +173,7 @@ def main() -> int:
                 "recursive_summary": result.summary,
                 "dev_results": dev_summary,
                 "test_results": test_summary,
+                "invalid_test_position_ids": invalid_test_ids,
             }
         )
 
@@ -143,7 +184,8 @@ def main() -> int:
                 "manifest": str(manifest),
                 "train_records": len(train_records),
                 "dev_records": len(dev_records),
-                "test_records": len(test_records),
+                "test_records": len(valid_test_records),
+                "invalid_test_records_excluded": len(invalid_test_ids),
                 "runs": all_runs,
             },
             indent=2,

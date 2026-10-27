@@ -522,6 +522,45 @@ def fine_tune_candidate(
     return candidate_model
 
 
+@torch.no_grad()
+def evaluate_regret_metrics(model: MLPRanker, examples: List[TrainingExample]) -> dict:
+    """Evaluate ranking metrics including mate-excluded regret statistics."""
+    model.eval()
+    losses = []
+    regrets = []
+    non_mate_regrets = []
+    top1 = 0
+    for ex in examples:
+        pos = torch.from_numpy(ex.position_features).float()
+        moves = torch.from_numpy(ex.move_features).float()
+        target = torch.tensor(ex.target_index, dtype=torch.long)
+        logits = model(pos, moves)
+        if not torch.isfinite(logits).all():
+            raise FloatingPointError("Non-finite model logits during evaluation")
+        losses.append(float(F.cross_entropy(logits.unsqueeze(0), target.unsqueeze(0)).item()))
+        pred = int(torch.argmax(logits).item())
+        if pred == ex.target_index:
+            top1 += 1
+        regret = ex.candidate_scores[ex.target_index] - ex.candidate_scores[pred]
+        regrets.append(regret)
+        if not any(abs(score) >= 90000 for score in ex.candidate_scores):
+            non_mate_regrets.append(regret)
+    n = len(examples)
+    return {
+        "loss": float(np.mean(losses)) if losses else 0.0,
+        "top1_agreement": top1 / max(n, 1),
+        "mean_regret_cp": float(np.mean(regrets)) if regrets else 0.0,
+        "median_regret_cp": float(np.median(regrets)) if regrets else 0.0,
+        "non_mate_regret_cp": (
+            float(np.mean(non_mate_regrets))
+            if non_mate_regrets
+            else float(np.mean(regrets)) if regrets else 0.0
+        ),
+        "non_mate_num_examples": len(non_mate_regrets),
+        "num_examples": n,
+    }
+
+
 # --- 5. Acceptance Gate -----------------------------------------------------
 
 @dataclass
@@ -557,7 +596,7 @@ def evaluate_acceptance_gate(
 
     Decision policy:
     1. Metrics must be valid and finite.
-    2. Candidate mean engine-score regret must improve by at least
+    2. Candidate non-mate engine-score regret must improve by at least
        ``min_regret_reduction_cp`` relative to baseline.
     3. Candidate top-1 agreement drop must not exceed ``max_agreement_drop``.
     """
@@ -604,8 +643,18 @@ def evaluate_acceptance_gate(
                     thresholds=thresholds,
                 )
 
-    base_regret = baseline_metrics["mean_regret_cp"]
-    cand_regret = candidate_metrics["mean_regret_cp"]
+    base_regret = (
+        baseline_metrics["non_mate_regret_cp"]
+        if baseline_metrics.get("non_mate_metric_source") == "computed"
+        and baseline_metrics.get("non_mate_num_examples", 0) > 0
+        else baseline_metrics["mean_regret_cp"]
+    )
+    cand_regret = (
+        candidate_metrics["non_mate_regret_cp"]
+        if candidate_metrics.get("non_mate_metric_source") == "computed"
+        and candidate_metrics.get("non_mate_num_examples", 0) > 0
+        else candidate_metrics["mean_regret_cp"]
+    )
     regret_diff = base_regret - cand_regret  # positive means candidate regret is lower (better)
 
     base_top1 = baseline_metrics["top1_agreement"]
@@ -770,6 +819,7 @@ def run_recursive_self_learning(
                 reference_best_move=record.reference_best_move,
             )
     round_results: List[SelfLearningRoundResult] = []
+    excluded_position_ids = set()
 
     for iteration in range(1, config.iterations + 1):
         round_config = dataclasses.replace(
@@ -780,7 +830,7 @@ def run_recursive_self_learning(
         round_output = output_dir / f"round_{iteration:03d}"
         result = run_self_learning_round(
             current_checkpoint,
-            train_pool,
+            [record for record in train_pool if record.position_id not in excluded_position_ids],
             dev_pool,
             round_output,
             round_config,
@@ -788,6 +838,9 @@ def run_recursive_self_learning(
             feedback_cache=feedback_cache,
         )
         round_results.append(result)
+        excluded_position_ids.update(
+            result.summary.get("selected_position_ids", [])
+        )
         current_checkpoint = round_output / "current_best.pt"
 
     summary = {
@@ -957,6 +1010,7 @@ def run_self_learning_round(
     )
 
     # 6. Evaluate baseline and candidate on identical dev positions
+    supplied_dev_examples = dev_examples is not None
     if dev_examples is None:
         if all(record.candidate_scores_cp is not None for record in dev_pool):
             dev_examples = [_record_to_example(record) for record in dev_pool]
@@ -967,6 +1021,21 @@ def run_self_learning_round(
 
     baseline_metrics = evaluate(baseline_model, dev_examples)
     candidate_metrics = evaluate(candidate_model, dev_examples)
+    if not supplied_dev_examples:
+        baseline_extended = evaluate_regret_metrics(baseline_model, dev_examples)
+        candidate_extended = evaluate_regret_metrics(candidate_model, dev_examples)
+        for metrics, extended in (
+            (baseline_metrics, baseline_extended),
+            (candidate_metrics, candidate_extended),
+        ):
+            metrics.update(
+                {
+                    "median_regret_cp": extended["median_regret_cp"],
+                    "non_mate_regret_cp": extended["non_mate_regret_cp"],
+                    "non_mate_num_examples": extended["non_mate_num_examples"],
+                    "non_mate_metric_source": "computed",
+                }
+            )
 
     # 7. Gate decision
     decision = evaluate_acceptance_gate(baseline_metrics, candidate_metrics, config.gate)
@@ -1033,6 +1102,7 @@ def run_self_learning_round(
         "regret_diff_cp": decision.regret_diff_cp,
         "agreement_diff": decision.agreement_diff,
         "num_candidate_positions": len(selected_records),
+        "selected_position_ids": [record.position_id for record in selected_records],
         "num_feedback_generated": len(feedback_records),
         "num_verified_examples": verification.num_accepted,
         "num_rejected_examples": verification.num_rejected,

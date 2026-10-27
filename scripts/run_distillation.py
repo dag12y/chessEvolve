@@ -12,6 +12,7 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 from chessevolve.distillation import (  # noqa: E402
+    _record_to_example,
     DistillationConfig,
     load_records,
     run_student,
@@ -43,6 +44,17 @@ def main() -> None:
     records = validate_records_against_manifest(
         load_records(args.dataset), args.manifest, "train"
     )
+    valid_records = []
+    invalid_train_ids = []
+    for record in records:
+        try:
+            _record_to_example(record)
+        except ValueError as exc:
+            if "board is not a valid position" not in str(exc):
+                raise
+            invalid_train_ids.append(record.position_id)
+        else:
+            valid_records.append(record)
     dataset_dir = args.dataset if args.dataset.is_dir() else args.dataset.parent
     dev_records = validate_records_against_manifest(
         load_records(dataset_dir / "dev_records.jsonl"), args.manifest, "dev"
@@ -64,7 +76,7 @@ def main() -> None:
             all_results.append(
                 run_student(
                     args.checkpoint,
-                    records,
+                    valid_records,
                     args.output_dir,
                     config,
                     method,
@@ -75,6 +87,7 @@ def main() -> None:
         "checkpoint": str(args.checkpoint),
         "dataset": str(args.dataset),
         "manifest": str(args.manifest) if args.manifest else None,
+        "invalid_train_records_excluded": invalid_train_ids,
         "results": all_results,
     }
     (args.output_dir / "summary.json").write_text(

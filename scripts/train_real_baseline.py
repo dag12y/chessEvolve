@@ -4,7 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import importlib.metadata
+import subprocess
 import sys
 from pathlib import Path
 
@@ -59,6 +62,7 @@ def main() -> int:
         default=4,
         help="Training batch size.",
     )
+    parser.add_argument("--manifest", type=Path, default=None, help="Dataset manifest for provenance metadata.")
 
     args = parser.parse_args()
 
@@ -75,10 +79,19 @@ def main() -> int:
     if not train_records:
         print("ERROR: No train records found. Cannot train.", file=sys.stderr)
         return 1
+    manifest_path = args.manifest or (labeled_dir / "manifest.json")
+    metadata = {
+        "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+        "git_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+        "library_versions": {
+            package: importlib.metadata.version(package)
+            for package in ("torch", "numpy")
+        },
+    }
 
     all_results = {}
     for seed in seeds:
-        run_dir = args.output_dir / f"real_baseline_seed{seed}"
+        run_dir = args.output_dir / f"full_baseline_seed{seed}"
         print(f"\n--- Seed {seed} → {run_dir} ---")
         config = RealTrainConfig(
             seed=seed,
@@ -92,6 +105,7 @@ def main() -> int:
                 dev_records=dev_records,
                 config=config,
                 output_dir=run_dir,
+                metadata=metadata,
             )
         except Exception as exc:
             print(f"  FAILED: {exc}", file=sys.stderr)
