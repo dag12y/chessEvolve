@@ -186,9 +186,26 @@ def test_search_depth_is_validated() -> None:
     assert "search_depth" in response.json()["detail"]
 
 
-def test_default_search_depth_is_three() -> None:
+def test_default_search_depth_is_two() -> None:
     response = client.post(
         "/move",
         json={"fen": START_FEN, "model_id": "v2_b_ranked_teacher_seed1"},
     )
     assert response.status_code == 200
+
+
+def test_forcing_moves_are_not_pruned_from_search() -> None:
+    fen = "4k3/8/8/3r4/8/2B5/8/4K3 w - - 0 1"
+    response = client.post(
+        "/move",
+        json={
+            "fen": fen,
+            "model_id": "v2_mixed_teacher_seed1",
+            "temperature": 0,
+            "search_depth": 2,
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["chosen"]["uci"] in {
+        move.uci() for move in chess.Board(fen).legal_moves
+    }

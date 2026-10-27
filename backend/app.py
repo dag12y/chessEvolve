@@ -36,6 +36,7 @@ from chessevolve.encoding import (
     encode_position,
     encode_position_legacy,
 )
+from chessevolve.engine import forcing_moves
 from chessevolve.train import load_checkpoint
 
 # --------------------------------------------------------------------------- #
@@ -192,7 +193,7 @@ class ModelService:
 
         if temperature == 0:
             if search_depth:
-                root_indices = order[:SEARCH_ROOT_CANDIDATES]
+                root_indices = self._search_indices(board, legal_moves, scores)
                 ranking_scores = np.full(len(legal_moves), -np.inf)
                 for move_index in root_indices:
                     board.push(legal_moves[int(move_index)])
@@ -230,6 +231,19 @@ class ModelService:
             len(legal_moves),
         )
 
+    def _search_indices(
+        self, board: chess.Board, legal_moves: list[chess.Move], scores: np.ndarray
+    ) -> list[int]:
+        indices = set(
+            int(index)
+            for index in np.argsort(scores)[::-1][:SEARCH_ROOT_CANDIDATES]
+        )
+        forcing = {move.uci() for move in self._forcing_moves(board)}
+        indices.update(
+            index for index, move in enumerate(legal_moves) if move.uci() in forcing
+        )
+        return sorted(indices, key=lambda index: float(scores[index]), reverse=True)
+
     def _score_position_moves(
         self, board: chess.Board, model: Any, position_encoder: Any, move_encoder: Any
     ) -> tuple[list[chess.Move], np.ndarray]:
@@ -243,6 +257,10 @@ class ModelService:
         with torch.no_grad():
             values = model(position_tensor, moves_tensor)
         return legal_moves, values.detach().cpu().numpy().astype(np.float64)
+
+    @staticmethod
+    def _forcing_moves(board: chess.Board) -> list[chess.Move]:
+        return forcing_moves(board)
 
     def _search_value(
         self,
@@ -264,7 +282,7 @@ class ModelService:
         if depth <= 0:
             return float(np.max(scores))
         best = -np.inf
-        for move_index in np.argsort(scores)[::-1][:SEARCH_ROOT_CANDIDATES]:
+        for move_index in self._search_indices(board, legal_moves, scores):
             board.push(legal_moves[int(move_index)])
             value = -self._search_value(
                 board, model, depth - 1, position_encoder, move_encoder

@@ -80,6 +80,10 @@ class StockfishAdapter:
         """Return all legal moves for the position."""
         return list(board.legal_moves)
 
+    def forcing_candidates(self, board: chess.Board) -> List[chess.Move]:
+        """Return legal checks, captures, and promotions in stable order."""
+        return forcing_moves(board)
+
     def evaluate_candidates(
         self,
         board: chess.Board,
@@ -128,3 +132,14 @@ class StockfishAdapter:
         except chess.engine.EngineError as exc:
             raise RuntimeError(f"Stockfish play failed: {exc}") from exc
         return result.move
+
+
+def forcing_moves(board: chess.Board) -> List[chess.Move]:
+    """Return legal checks, captures, and promotions in stable order."""
+    return [
+        move
+        for move in board.legal_moves
+        if board.gives_check(move)
+        or board.is_capture(move)
+        or move.promotion is not None
+    ]
