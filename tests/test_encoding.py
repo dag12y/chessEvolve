@@ -32,8 +32,8 @@ def test_dimensions_and_dtypes():
     assert m.shape == (MOVE_DIM,)
     assert p.dtype == np.float32
     assert m.dtype == np.float32
-    assert POSITION_DIM == 774
-    assert MOVE_DIM == 158
+    assert POSITION_DIM == 1701
+    assert MOVE_DIM == 162
 
 
 def test_constants_consistent():
@@ -49,6 +49,33 @@ def test_determinism():
     m2 = encode_move(board, move)
     assert np.array_equal(p1, p2)
     assert np.array_equal(m1, m2)
+
+
+def test_chess_aware_position_features_change_with_position():
+    start = encode_position(chess.Board())
+    developed = chess.Board()
+    for uci in ("e2e4", "e7e5", "g1f3", "b8c6", "f1b5", "g8f6"):
+        developed.push(chess.Move.from_uci(uci))
+    changed = encode_position(developed)
+    # Engine-independent features occupy the appended region after legacy data.
+    assert not np.array_equal(start[774:], changed[774:])
+    assert np.any(start[1565:1693] != changed[1565:1693])  # attack maps
+
+
+def test_move_tactical_features_encode_check_and_capture():
+    board = chess.Board("4k3/8/8/8/8/2R5/8/4K3 w - - 0 1")
+    checking_move = chess.Move.from_uci("c3e3")
+    assert checking_move in board.legal_moves
+    checking = encode_move(board, checking_move)
+    assert checking[158] == 1.0
+    assert checking[159] == 0.0
+
+    capture_board = chess.Board("4k3/8/8/8/8/2R1r3/8/4K3 w - - 0 1")
+    capture = chess.Move.from_uci("c3e3")
+    assert capture in capture_board.legal_moves
+    capture_features = encode_move(capture_board, capture)
+    assert capture_features[159] == 1.0
+    assert capture_features[160] > 0.0
 
 
 def test_starting_position_piece_planes():
@@ -150,6 +177,8 @@ def test_move_one_hot_and_piece():
     assert m[140:153].sum() == 1.0
     # no promotion
     assert m[153] == 1.0
+    assert m[158] == 0.0
+    assert m[159] == 0.0
 
 
 def test_black_move_and_capture():
@@ -337,5 +366,5 @@ def test_package_imports():
     import chessevolve
     assert hasattr(chessevolve, "encode_position")
     assert hasattr(chessevolve, "POSITION_DIM")
-    assert chessevolve.POSITION_DIM == 774
-    assert chessevolve.MOVE_DIM == 158
+    assert chessevolve.POSITION_DIM == 1701
+    assert chessevolve.MOVE_DIM == 162
