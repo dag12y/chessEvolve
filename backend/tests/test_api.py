@@ -33,6 +33,12 @@ def test_models_list() -> None:
     body = response.json()
     ids = [model["id"] for model in body["models"]]
     expected = [
+        "v2_b_teacher_seed1",
+        "v2_b_teacher_seed0",
+        "v2_b_hard_student_seed0",
+        "v2_b_distilled_student_seed0",
+        "v2_b_hard_student_seed1",
+        "v2_b_distilled_student_seed1",
         "full_baseline_seed0",
         "full_baseline_seed1",
         "full_distillation_seed0_hard",
@@ -64,7 +70,7 @@ def test_move_returns_chosen_and_ranked_top3() -> None:
     scores = [move["score"] for move in body["top_moves"]]
     assert scores == sorted(scores, reverse=True)
     assert all(move["rank"] == i + 1 for i, move in enumerate(body["top_moves"]))
-    assert body["top_moves"][0]["uci"] == body["chosen"]["uci"]  # argmax == top rank
+    assert body["top_moves"][0]["uci"] == body["chosen"]["uci"]
     assert body["position_after"]["fen"] != START_FEN
 
 
@@ -146,3 +152,31 @@ def test_move_negative_temperature() -> None:
     )
     assert response.status_code == 400
     assert "temperature" in response.json()["detail"].lower()
+
+
+def test_model_takes_forced_mate_with_search() -> None:
+    fen = "7k/5K2/6Q1/8/8/8/8/8 w - - 0 1"
+    response = client.post(
+        "/move",
+        json={
+            "fen": fen,
+            "model_id": "v2_b_teacher_seed1",
+            "temperature": 0,
+            "search_depth": 2,
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["chosen"]["uci"] in {"g6g8", "g6g7", "g6h6", "g6h5"}
+
+
+def test_search_depth_is_validated() -> None:
+    response = client.post(
+        "/move",
+        json={
+            "fen": START_FEN,
+            "model_id": "v2_b_teacher_seed1",
+            "search_depth": 4,
+        },
+    )
+    assert response.status_code == 400
+    assert "search_depth" in response.json()["detail"]

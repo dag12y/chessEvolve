@@ -54,11 +54,12 @@ export async function listModels(): Promise<Model[]> {
 export async function getMove(
   fen: string,
   modelId: string,
-  temperature: number
+  temperature: number,
+  searchDepth = 2
 ): Promise<MoveResponse> {
   return request("/move", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ fen, model_id: modelId, temperature }),
+    body: JSON.stringify({ fen, model_id: modelId, temperature, search_depth: searchDepth }),
   });
 }
