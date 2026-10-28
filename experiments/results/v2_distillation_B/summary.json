@@ -1,0 +1,240 @@
+{
+  "checkpoint": "experiments/results/v2_features/B_seed1/best.pt",
+  "dataset": "data/processed/dag12yi_phase35_labeled",
+  "manifest": "data/processed/dag12yi_phase35_labeled/manifest.json",
+  "invalid_train_records_excluded": [
+    "game-1581-ply4",
+    "game-1581-ply6",
+    "game-1581-ply8",
+    "game-1581-ply10",
+    "game-1581-ply12",
+    "game-1581-ply14",
+    "game-1581-ply16",
+    "game-2023-ply42",
+    "game-2022-ply4",
+    "game-2022-ply6",
+    "game-2022-ply8",
+    "game-2022-ply10",
+    "game-2022-ply12",
+    "game-2022-ply14",
+    "game-2022-ply16",
+    "game-2022-ply18",
+    "game-2022-ply20",
+    "game-2022-ply22",
+    "game-2022-ply24",
+    "game-2022-ply26",
+    "game-1582-ply4",
+    "game-1582-ply6",
+    "game-1582-ply8",
+    "game-1582-ply10",
+    "game-1582-ply12",
+    "game-1582-ply14",
+    "game-1582-ply16",
+    "game-1582-ply18",
+    "game-1582-ply20",
+    "game-1582-ply40",
+    "game-1582-ply42"
+  ],
+  "results": [
+    {
+      "checkpoint": "experiments/results/v2_distillation_B/hard_seed0.pt",
+      "metrics": {
+        "loss": 2.7052845940281336,
+        "top1_agreement": 0.23873095649442438,
+        "mean_regret_cp": 1914.88278100623,
+        "num_examples": 19101,
+        "method": "hard",
+        "seed": 0,
+        "num_train_examples": 87931,
+        "train_metrics": {
+          "loss": 2.648461330839535,
+          "top1_agreement": 0.2525844127782011,
+          "mean_regret_cp": 1988.4218307536592,
+          "num_examples": 87931
+        },
+        "dev_metrics": {
+          "loss": 2.7052845940281336,
+          "top1_agreement": 0.23873095649442438,
+          "mean_regret_cp": 1914.88278100623,
+          "num_examples": 19101
+        },
+        "teacher_parameter_count": 136577,
+        "student_parameter_count": 30017,
+        "teacher_checkpoint_metrics": {
+          "epoch": 4,
+          "loss": 2.5932741897340734,
+          "top1_agreement": 0.2712423433328098,
+          "mean_regret_cp": 1880.068687503272,
+          "num_examples": 19101,
+          "median_regret_cp": 71.0,
+          "non_mate_regret_cp": 200.81452577613214,
+          "non_mate_num_examples": 17555
+        }
+      },
+      "history": [
+        {
+          "epoch": 1,
+          "train_loss": 2.8976463239548784
+        },
+        {
+          "epoch": 2,
+          "train_loss": 2.7799355962313848
+        },
+        {
+          "epoch": 3,
+          "train_loss": 2.70112258308198
+        }
+      ]
+    },
+    {
+      "checkpoint": "experiments/results/v2_distillation_B/distilled_seed0.pt",
+      "metrics": {
+        "loss": 2.6982459063873523,
+        "top1_agreement": 0.2373174179362337,
+        "mean_regret_cp": 1916.542170566986,
+        "num_examples": 19101,
+        "method": "distilled",
+        "seed": 0,
+        "num_train_examples": 87931,
+        "train_metrics": {
+          "loss": 2.6453179194574448,
+          "top1_agreement": 0.2502644118683968,
+          "mean_regret_cp": 2014.2160671435558,
+          "num_examples": 87931
+        },
+        "dev_metrics": {
+          "loss": 2.6982459063873523,
+          "top1_agreement": 0.2373174179362337,
+          "mean_regret_cp": 1916.542170566986,
+          "num_examples": 19101
+        },
+        "teacher_parameter_count": 136577,
+        "student_parameter_count": 30017,
+        "teacher_checkpoint_metrics": {
+          "epoch": 4,
+          "loss": 2.5932741897340734,
+          "top1_agreement": 0.2712423433328098,
+          "mean_regret_cp": 1880.068687503272,
+          "num_examples": 19101,
+          "median_regret_cp": 71.0,
+          "non_mate_regret_cp": 200.81452577613214,
+          "non_mate_num_examples": 17555
+        }
+      },
+      "history": [
+        {
+          "epoch": 1,
+          "train_loss": 0.022221817651384826
+        },
+        {
+          "epoch": 2,
+          "train_loss": 0.0150806307306513
+        },
+        {
+          "epoch": 3,
+          "train_loss": 0.01138893856026439
+        }
+      ]
+    },
+    {
+      "checkpoint": "experiments/results/v2_distillation_B/hard_seed1.pt",
+      "metrics": {
+        "loss": 2.6975996707469436,
+        "top1_agreement": 0.23831213025496048,
+        "mean_regret_cp": 1892.2919218889062,
+        "num_examples": 19101,
+        "method": "hard",
+        "seed": 1,
+        "num_train_examples": 87931,
+        "train_metrics": {
+          "loss": 2.6431570687991193,
+          "top1_agreement": 0.24922950950176842,
+          "mean_regret_cp": 2024.9204831060717,
+          "num_examples": 87931
+        },
+        "dev_metrics": {
+          "loss": 2.6975996707469436,
+          "top1_agreement": 0.23831213025496048,
+          "mean_regret_cp": 1892.2919218889062,
+          "num_examples": 19101
+        },
+        "teacher_parameter_count": 136577,
+        "student_parameter_count": 30017,
+        "teacher_checkpoint_metrics": {
+          "epoch": 4,
+          "loss": 2.5932741897340734,
+          "top1_agreement": 0.2712423433328098,
+          "mean_regret_cp": 1880.068687503272,
+          "num_examples": 19101,
+          "median_regret_cp": 71.0,
+          "non_mate_regret_cp": 200.81452577613214,
+          "non_mate_num_examples": 17555
+        }
+      },
+      "history": [
+        {
+          "epoch": 1,
+          "train_loss": 2.9007039463693176
+        },
+        {
+          "epoch": 2,
+          "train_loss": 2.7790232342792276
+        },
+        {
+          "epoch": 3,
+          "train_loss": 2.696762423119397
+        }
+      ]
+    },
+    {
+      "checkpoint": "experiments/results/v2_distillation_B/distilled_seed1.pt",
+      "metrics": {
+        "loss": 2.7119959186403517,
+        "top1_agreement": 0.23443798753991937,
+        "mean_regret_cp": 1941.7496466153605,
+        "num_examples": 19101,
+        "method": "distilled",
+        "seed": 1,
+        "num_train_examples": 87931,
+        "train_metrics": {
+          "loss": 2.661416566924338,
+          "top1_agreement": 0.24614754750884216,
+          "mean_regret_cp": 2071.1472973126656,
+          "num_examples": 87931
+        },
+        "dev_metrics": {
+          "loss": 2.7119959186403517,
+          "top1_agreement": 0.23443798753991937,
+          "mean_regret_cp": 1941.7496466153605,
+          "num_examples": 19101
+        },
+        "teacher_parameter_count": 136577,
+        "student_parameter_count": 30017,
+        "teacher_checkpoint_metrics": {
+          "epoch": 4,
+          "loss": 2.5932741897340734,
+          "top1_agreement": 0.2712423433328098,
+          "mean_regret_cp": 1880.068687503272,
+          "num_examples": 19101,
+          "median_regret_cp": 71.0,
+          "non_mate_regret_cp": 200.81452577613214,
+          "non_mate_num_examples": 17555
+        }
+      },
+      "history": [
+        {
+          "epoch": 1,
+          "train_loss": 0.022270643132734014
+        },
+        {
+          "epoch": 2,
+          "train_loss": 0.01518150546638345
+        },
+        {
+          "epoch": 3,
+          "train_loss": 0.011749037735665695
+        }
+      ]
+    }
+  ]
+}

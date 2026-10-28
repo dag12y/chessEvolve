@@ -1,0 +1,95 @@
+{
+  "split": "test",
+  "declared_positions": 19318,
+  "evaluated_positions": 19316,
+  "excluded_invalid_positions": [
+    "game-1580-ply4",
+    "game-1580-ply6"
+  ],
+  "models": [
+    {
+      "model": "A_seed0",
+      "checkpoint": "experiments/results/full_baseline_seed0/final.pt",
+      "positions": 19316,
+      "top1": 0.2609235866639056,
+      "mean_regret_cp": 2112.9307310002073,
+      "median_regret_cp": 71.0,
+      "non_mate_regret_cp": 202.72656648709952,
+      "median_latency_ms": 0.124368,
+      "input_dim": 932,
+      "parameters": 136065
+    },
+    {
+      "model": "A_seed1",
+      "checkpoint": "experiments/results/full_baseline_seed1/final.pt",
+      "positions": 19316,
+      "top1": 0.25771381238351626,
+      "mean_regret_cp": 2273.320304410851,
+      "median_regret_cp": 71.0,
+      "non_mate_regret_cp": 196.92622625460731,
+      "median_latency_ms": 0.12868049999999998,
+      "input_dim": 932,
+      "parameters": 136065
+    },
+    {
+      "model": "B_teacher_seed1",
+      "checkpoint": "experiments/results/v2_features/B_seed1/best.pt",
+      "positions": 19316,
+      "top1": 0.26703251190722715,
+      "mean_regret_cp": 1971.2398529716297,
+      "median_regret_cp": 71.0,
+      "non_mate_regret_cp": 200.0018712787071,
+      "median_latency_ms": 0.116661,
+      "input_dim": 936,
+      "parameters": 136577
+    },
+    {
+      "model": "B_hard_seed0",
+      "checkpoint": "experiments/results/v2_distillation_B/hard_seed0.pt",
+      "positions": 19316,
+      "top1": 0.23995651273555602,
+      "mean_regret_cp": 1947.0586042658936,
+      "median_regret_cp": 87.0,
+      "non_mate_regret_cp": 227.07615537283812,
+      "median_latency_ms": 0.047506,
+      "input_dim": 936,
+      "parameters": 30017
+    },
+    {
+      "model": "B_distilled_seed0",
+      "checkpoint": "experiments/results/v2_distillation_B/distilled_seed0.pt",
+      "positions": 19316,
+      "top1": 0.23415821080969146,
+      "mean_regret_cp": 1971.5722199213087,
+      "median_regret_cp": 89.0,
+      "non_mate_regret_cp": 226.75497590019847,
+      "median_latency_ms": 0.045874,
+      "input_dim": 936,
+      "parameters": 30017
+    },
+    {
+      "model": "B_hard_seed1",
+      "checkpoint": "experiments/results/v2_distillation_B/hard_seed1.pt",
+      "positions": 19316,
+      "top1": 0.2377303789604473,
+      "mean_regret_cp": 1933.2848415821081,
+      "median_regret_cp": 91.0,
+      "non_mate_regret_cp": 230.14749078537,
+      "median_latency_ms": 0.045171,
+      "input_dim": 936,
+      "parameters": 30017
+    },
+    {
+      "model": "B_distilled_seed1",
+      "checkpoint": "experiments/results/v2_distillation_B/distilled_seed1.pt",
+      "positions": 19316,
+      "top1": 0.23446883412714847,
+      "mean_regret_cp": 2043.8832056326362,
+      "median_regret_cp": 89.0,
+      "non_mate_regret_cp": 227.2683867309328,
+      "median_latency_ms": 0.0456545,
+      "input_dim": 936,
+      "parameters": 30017
+    }
+  ]
+}
