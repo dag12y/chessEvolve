@@ -1,4 +1,7 @@
-torch
+# The project runs on CPU; use PyTorch's CPU-only wheel rather than pulling
+# several hundred megabytes of CUDA/NVIDIA runtime packages from PyPI.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.14.1+cpu
 python-chess
 numpy
 pandas
