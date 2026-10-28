@@ -34,6 +34,8 @@ def test_models_list() -> None:
     ids = [model["id"] for model in body["models"]]
     expected = [
         "v2_mixed_teacher_seed1",
+        "v2_student_distilled_seed1",
+        "v2_student_hardlabel_seed1",
         "random",
     ]
     assert ids == expected
@@ -90,10 +92,17 @@ def test_move_temperature_sampling_stays_legal() -> None:
 def test_move_all_models_work() -> None:
     board = chess.Board(START_FEN)
     legal = {m.uci() for m in board.legal_moves}
+    available = {
+        model["id"]: model["available"] for model in client.get("/models").json()["models"]
+    }
     for model_id in (
         "v2_mixed_teacher_seed1",
+        "v2_student_distilled_seed1",
+        "v2_student_hardlabel_seed1",
         "random",
     ):
+        if not available[model_id]:
+            continue
         response = client.post(
             "/move", json={"fen": START_FEN, "model_id": model_id, "temperature": 0}
         )

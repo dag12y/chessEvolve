@@ -7,6 +7,18 @@
       "path": "experiments/results/v2_mixed_B/best.pt"
     },
     {
+      "id": "v2_student_distilled_seed1",
+      "name": "Student model (distilled, seed 1)",
+      "type": "checkpoint",
+      "path": "experiments/results/v2_distillation_B/distilled_seed1.pt"
+    },
+    {
+      "id": "v2_student_hardlabel_seed1",
+      "name": "Student model (hard labels, seed 1)",
+      "type": "checkpoint",
+      "path": "experiments/results/v2_distillation_B/hard_seed1.pt"
+    },
+    {
       "id": "random",
       "name": "Random opponent (uniform legal move)",
       "type": "random"
